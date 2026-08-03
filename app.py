@@ -13,12 +13,22 @@ st.title(f"🏆 Titled Tuesday — Live Tracker: {USERNAME}")
 # --- PANEL STEROWANIA TURNIEJEM (W panelu bocznym) ---
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
+# Wyświetlanie aktualnego czasu serwera dla ułatwienia kalibracji
+server_now_utc = datetime.now(timezone.utc)
+server_now_local = datetime.now()
+
+st.sidebar.info(
+    f"🕒 **Czas serwera:**\n\n"
+    f"• **UTC:** {server_now_utc.strftime('%H:%M:%S')}\n"
+    f"• **Lokalny serwera:** {server_now_local.strftime('%H:%M:%S')}"
+)
+
 selected_date = st.sidebar.date_input("Data turnieju", value=date.today())
-selected_time = st.sidebar.time_input("Godzina rozpoczęcia (np. 17:00)", value=datetime.strptime("17:00", "%H:%M").time())
+selected_time = st.sidebar.time_input("Godzina rozpoczęcia (czas serwera)", value=datetime.strptime("17:00", "%H:%M").time())
 start_round = st.sidebar.number_input("Numer pierwszej rundy", min_value=1, value=1, step=1)
 filter_blitz = st.sidebar.checkbox("Filtruj tylko partie Blitz", value=True)
 
-# Połączenie daty i godziny w jeden znacznik czasu (pozwala na precyzyjne odfiltrowanie wcześniejszych partii)
+# Połączenie daty i godziny w jeden znacznik czasu (timestamp)
 start_datetime = datetime.combine(selected_date, selected_time)
 start_timestamp = int(start_datetime.timestamp())
 
@@ -107,6 +117,16 @@ else:
     # Tabela z wynikami
     df = pd.DataFrame(processed_games)
     st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # --- PODSUMOWANIE / WYNIK POD TABELĄ ---
+    st.markdown("---")
+    pct_score = (total_score / len(processed_games)) * 100 if processed_games else 0
+    
+    st.markdown(f"### 🎯 Wynik od godziny {selected_time.strftime('%H:%M')}")
+    st.success(
+        f"**Łączny wynik:** `{total_score} / {len(processed_games)} pkt` "
+        f"({pct_score:.1f}% możliwych punktów w {len(processed_games)} rundach)"
+    )
 
 # Odświeżanie co 20 sekund
 time.sleep(20)
