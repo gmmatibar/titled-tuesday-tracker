@@ -8,7 +8,7 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Wymuszenie wymiarów bezpośrednio na tabeli Streamlit) ---
+# --- STYLOWANIE CSS ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
@@ -32,9 +32,9 @@ st.markdown("""
         font-size: 20px !important;
     }
 
-    /* Tabela Streamlit – Wymuszenie stałego układu i szerokości */
+    /* Kontener tabeli – rozszerzony do 520px, aby zmieścić pełne nazwy */
     div[data-testid="stTable"] {
-        width: 380px !important; /* Łączna szerokość kontenera tabeli */
+        width: 520px !important;
     }
 
     div[data-testid="stTable"] table {
@@ -46,11 +46,11 @@ st.markdown("""
         overflow: hidden !important;
     }
 
-    /* Kompaktowe marginesy i obcinanie tekstu */
+    /* Kompaktowe marginesy i obcinanie tekstu (z wielokropkiem) */
     div[data-testid="stTable"] td, div[data-testid="stTable"] th {
         background-color: #1A1A1A !important;
         border-bottom: 1px solid #282828 !important;
-        padding: 4px 3px !important;
+        padding: 4px 5px !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
@@ -62,30 +62,30 @@ st.markdown("""
         text-align: left !important;
     }
 
-    /* PRECYZYJNE WARTOŚCI PROCENTOWE/PIKSELOWE DLA KAŻDEJ KOLUMNY */
-    /* 1. Rd. (~32px) */
+    /* --- SZTYWNE DEDYKOWANE SZEROKOŚCI KOLUMN --- */
+    /* 1. Rd. -> Dopisany na sztywno pod szerokość nagłówka */
     div[data-testid="stTable"] table th:nth-child(1),
-    div[data-testid="stTable"] table td:nth-child(1) { width: 32px !important; max-width: 32px !important; }
+    div[data-testid="stTable"] table td:nth-child(1) { width: 35px !important; }
     
-    /* 2. Przeciwnik */
+    /* 2. Przeciwnik -> ROZSZERZONY (135px na nicki) */
     div[data-testid="stTable"] table th:nth-child(2),
-    div[data-testid="stTable"] table td:nth-child(2) { width: 90px !important; max-width: 90px !important; }
+    div[data-testid="stTable"] table td:nth-child(2) { width: 135px !important; }
     
-    /* 3. Imię i nazwisko */
+    /* 3. Imię i nazwisko -> ROZSZERZONY (180px na pełne imiona i nazwiska) */
     div[data-testid="stTable"] table th:nth-child(3),
-    div[data-testid="stTable"] table td:nth-child(3) { width: 120px !important; max-width: 120px !important; }
+    div[data-testid="stTable"] table td:nth-child(3) { width: 180px !important; }
     
-    /* 4. Ranking (~55px) */
+    /* 4. Ranking -> Dopisany na sztywno pod szerokość nagłówka */
     div[data-testid="stTable"] table th:nth-child(4),
-    div[data-testid="stTable"] table td:nth-child(4) { width: 55px !important; max-width: 55px !important; }
+    div[data-testid="stTable"] table td:nth-child(4) { width: 65px !important; }
     
-    /* 5. Kolor (~40px) */
+    /* 5. Kolor -> Dopisany na sztywno pod szerokość nagłówka */
     div[data-testid="stTable"] table th:nth-child(5),
-    div[data-testid="stTable"] table td:nth-child(5) { width: 40px !important; max-width: 40px !important; }
+    div[data-testid="stTable"] table td:nth-child(5) { width: 50px !important; }
     
-    /* 6. Wynik (~43px) */
+    /* 6. Wynik -> Dopisany na sztywno pod szerokość nagłówka */
     div[data-testid="stTable"] table th:nth-child(6),
-    div[data-testid="stTable"] table td:nth-child(6) { width: 43px !important; max-width: 43px !important; }
+    div[data-testid="stTable"] table td:nth-child(6) { width: 55px !important; }
 
     /* Wyśrodkowanie wybranej zawartości */
     div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
