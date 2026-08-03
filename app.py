@@ -8,7 +8,7 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Sztywne, mocno zawężone kolumny) ---
+# --- STYLOWANIE CSS (Dopasowane, sztywne szerokości kolumn) ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
@@ -37,7 +37,7 @@ st.markdown("""
         background-color: #1A1A1A !important;
         border-collapse: collapse !important;
         table-layout: fixed !important; /* Blokuje rozciąganie tabeli przez tekst */
-        width: 440px !important; /* Łączna szerokość całej tabeli */
+        width: 402px !important; /* Łączna optymalna szerokość całej tabeli */
         border-radius: 6px !important;
         overflow: hidden !important;
     }
@@ -46,7 +46,7 @@ st.markdown("""
     div[data-testid="stTable"] td, div[data-testid="stTable"] th {
         background-color: #1A1A1A !important;
         border-bottom: 1px solid #282828 !important;
-        padding: 3px 6px !important;
+        padding: 3px 4px !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important; /* Dodaje '...' przy zbyt długim tekście */
@@ -59,13 +59,13 @@ st.markdown("""
         text-align: left !important;
     }
 
-    /* PRECYZYJNE, SZTYWNE SZEROKOŚCI KOLUMN (Łącznie: 440px) */
-    div[data-testid="stTable"] th:nth-child(1), div[data-testid="stTable"] td:nth-child(1) { width: 40px !important; }  /* Rd. */
-    div[data-testid="stTable"] th:nth-child(2), div[data-testid="stTable"] td:nth-child(2) { width: 90px !important; }  /* Przeciwnik (MOCNO ZAWĘŻONE) */
-    div[data-testid="stTable"] th:nth-child(3), div[data-testid="stTable"] td:nth-child(3) { width: 130px !important; } /* Imię i nazwisko (MOCNO ZAWĘŻONE) */
-    div[data-testid="stTable"] th:nth-child(4), div[data-testid="stTable"] td:nth-child(4) { width: 70px !important; }  /* Ranking */
-    div[data-testid="stTable"] th:nth-child(5), div[data-testid="stTable"] td:nth-child(5) { width: 50px !important; }  /* Kolor */
-    div[data-testid="stTable"] th:nth-child(6), div[data-testid="stTable"] td:nth-child(6) { width: 60px !important; }  /* Wynik */
+    /* SZTYWNE SZEROKOŚCI DOPASOWANE DO NAGŁÓWKÓW (Łącznie: 402px) */
+    div[data-testid="stTable"] th:nth-child(1), div[data-testid="stTable"] td:nth-child(1) { width: 32px !important; }  /* Rd. */
+    div[data-testid="stTable"] th:nth-child(2), div[data-testid="stTable"] td:nth-child(2) { width: 90px !important; }  /* Przeciwnik */
+    div[data-testid="stTable"] th:nth-child(3), div[data-testid="stTable"] td:nth-child(3) { width: 130px !important; } /* Imię i nazwisko */
+    div[data-testid="stTable"] th:nth-child(4), div[data-testid="stTable"] td:nth-child(4) { width: 60px !important; }  /* Ranking */
+    div[data-testid="stTable"] th:nth-child(5), div[data-testid="stTable"] td:nth-child(5) { width: 45px !important; }  /* Kolor */
+    div[data-testid="stTable"] th:nth-child(6), div[data-testid="stTable"] td:nth-child(6) { width: 45px !important; }  /* Wynik */
 
     /* Wyśrodkowanie wybranej zawartości */
     div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
