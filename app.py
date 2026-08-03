@@ -8,38 +8,45 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Złoty kolor + Comic Sans + Tło inspirowane grafiką) ---
+# --- STYLOWANIE CSS (Bez przewijania + Złoty kolor + Comic Sans + Ciemne tło) ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
     
     /* Ogólna czcionka Comic Sans dla aplikacji */
-    html, body, [class*="css"], .stMarkdown, div[data-testid="stTable"], div[data-testid="stDataFrame"] {
+    html, body, [class*="css"], .stMarkdown, table {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
 
-    /* Złoty kolor tekstu dla tabeli i nagłówka */
-    div[data-testid="stDataFrame"] *, h3 {
+    /* Złoty kolor tekstu dla całej tabeli st.table i nagłówków */
+    div[data-testid="stTable"] table *, h3 {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+        font-size: 18px !important;
     }
 
-    /* Ciemnoszare tło dla całej tabeli (kolor z paska pod kamerką) */
-    div[data-testid="stDataFrame"] {
+    /* Ciemnoszare tło dla całej tabeli */
+    div[data-testid="stTable"] table {
         background-color: #1A1A1A !important;
-        border: none !important;
+        border-collapse: collapse !important;
+        width: 100% !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
     }
 
-    /* Tło dla pojedynczych komórek oraz nagłówków */
-    div[data-testid="stDataFrame"] [role="gridcell"], 
-    div[data-testid="stDataFrame"] [role="columnheader"] {
+    /* Tło i obramowanie dla komórek wierszy */
+    div[data-testid="stTable"] td {
         background-color: #1A1A1A !important;
-        border-bottom: 1px solid #282828 !important; /* Dyskretna linia podziału */
+        border-bottom: 1px solid #282828 !important;
+        padding: 6px 12px !important;
     }
 
-    /* Tło dla nagłówków tabeli (nieco ciemniejsza wersja) */
-    div[data-testid="stDataFrame"] [role="columnheader"] {
+    /* Tło dla nagłówka tabeli */
+    div[data-testid="stTable"] th {
         background-color: #141414 !important;
+        border-bottom: 2px solid #333333 !important;
+        padding: 8px 12px !important;
+        text-align: left !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -142,7 +149,7 @@ for i in range(11):
             "Rd.": current_rd,
             "Przeciwnik": opponent_username,
             "Imię i nazwisko": opp_real_name,
-            "Ranking": opp_rating,
+            "Ranking": str(opp_rating),
             "Kolor": "⚪" if is_white else "⚫",
             "Wynik": result_text
         })
@@ -156,25 +163,11 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# Tabela z wynikami
+# Tabela z wynikami (użycie st.table gwarantuje brak paska scrolla)
 st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
 df = pd.DataFrame(processed_games)
-
-st.dataframe(
-    df, 
-    use_container_width=False, 
-    hide_index=True,
-    height=425,
-    column_config={
-        "Rd.": st.column_config.NumberColumn("Rd.", width=50),
-        "Przeciwnik": st.column_config.TextColumn("Przeciwnik", width=160),
-        "Imię i nazwisko": st.column_config.TextColumn("Imię i nazwisko", width=200),
-        "Ranking": st.column_config.TextColumn("Ranking", width=80),
-        "Kolor": st.column_config.TextColumn("Kolor", width=60),
-        "Wynik": st.column_config.TextColumn("Wynik", width=120),
-    }
-)
+st.table(df)
 
 # Odświeżanie co 20 sekund
 time.sleep(20)
