@@ -8,7 +8,7 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Kompaktowa tabela + Mniejsza czcionka) ---
+# --- STYLOWANIE CSS (Precyzyjna szerokość kolumn) ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
@@ -22,7 +22,7 @@ st.markdown("""
     div[data-testid="stTable"] table * {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
-        font-size: 14px !important; /* Zmniejszona czcionka */
+        font-size: 14px !important;
     }
 
     /* Tytuł nagłówka H3 */
@@ -32,31 +32,53 @@ st.markdown("""
         font-size: 20px !important;
     }
 
-    /* Zawężona tabela – nie rozciąga się na cały ekran */
+    /* Tabela - kompaktowa całość */
     div[data-testid="stTable"] table {
         background-color: #1A1A1A !important;
         border-collapse: collapse !important;
-        max-width: 680px !important; /* Maksymalna szerokość tabeli */
         width: auto !important;
         border-radius: 6px !important;
         overflow: hidden !important;
     }
 
-    /* Bardziej kompaktowe komórki (mniej wolnej przestrzeni) */
-    div[data-testid="stTable"] td {
+    /* Kompaktowe marginesy wewnętrzne komórek */
+    div[data-testid="stTable"] td, div[data-testid="stTable"] th {
         background-color: #1A1A1A !important;
         border-bottom: 1px solid #282828 !important;
-        padding: 4px 10px !important; /* Węższe rubryki pionowo i poziomo */
+        padding: 4px 8px !important;
         white-space: nowrap !important;
     }
 
-    /* Kompaktowe nagłówki tabeli */
+    /* Tło nagłówka */
     div[data-testid="stTable"] th {
         background-color: #141414 !important;
         border-bottom: 2px solid #333333 !important;
-        padding: 6px 10px !important;
         text-align: left !important;
-        white-space: nowrap !important;
+    }
+
+    /* DOPASOWANIE SZEROKOŚCI KOLUMN */
+
+    /* Kolumny zwarte (dopasowane ściśle do tekstu/nagłówka) */
+    div[data-testid="stTable"] th:nth-child(1), div[data-testid="stTable"] td:nth-child(1), /* Rd. */
+    div[data-testid="stTable"] th:nth-child(4), div[data-testid="stTable"] td:nth-child(4), /* Ranking */
+    div[data-testid="stTable"] th:nth-child(5), div[data-testid="stTable"] td:nth-child(5), /* Kolor */
+    div[data-testid="stTable"] th:nth-child(6), div[data-testid="stTable"] td:nth-child(6)  /* Wynik */ {
+        width: 1% !important;
+    }
+
+    /* Kolumny szerokie (z zapasem na długie nazwiska/nicki) */
+    div[data-testid="stTable"] th:nth-child(2), div[data-testid="stTable"] td:nth-child(2) {
+        min-width: 140px !important; /* Przeciwnik */
+    }
+
+    div[data-testid="stTable"] th:nth-child(3), div[data-testid="stTable"] td:nth-child(3) {
+        min-width: 200px !important; /* Imię i nazwisko */
+    }
+
+    /* Wyśrodkowanie rundy i koloru */
+    div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
+    div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5) {
+        text-align: center !important;
     }
     </style>
 """, unsafe_allow_html=True)
