@@ -8,7 +8,7 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Precyzyjna szerokość kolumn) ---
+# --- STYLOWANIE CSS (Zawężone kolumny + Złoty kolor) ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
@@ -66,13 +66,13 @@ st.markdown("""
         width: 1% !important;
     }
 
-    /* Kolumny szerokie (z zapasem na długie nazwiska/nicki) */
+    /* Zawężone kolumny tekstowe o połowę */
     div[data-testid="stTable"] th:nth-child(2), div[data-testid="stTable"] td:nth-child(2) {
-        min-width: 140px !important; /* Przeciwnik */
+        min-width: 70px !important; /* Przeciwnik */
     }
 
     div[data-testid="stTable"] th:nth-child(3), div[data-testid="stTable"] td:nth-child(3) {
-        min-width: 200px !important; /* Imię i nazwisko */
+        min-width: 100px !important; /* Imię i nazwisko */
     }
 
     /* Wyśrodkowanie rundy, koloru i wyniku */
@@ -136,11 +136,11 @@ def parse_result(result_code):
     win_codes = ['win']
     draw_codes = ['agreed', 'repetition', 'stalemate', 'insufficient', '50move', 'timevsinsufficient']
     if result_code in win_codes:
-        return 1.0, "W"
+        return 1.0, "1"
     elif result_code in draw_codes:
-        return 0.5, "R"
+        return 0.5, "0,5"
     else:
-        return 0.0, "P"
+        return 0.0, "0"
 
 # Pobieranie partii
 all_month_games = get_player_games(USERNAME)
