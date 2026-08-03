@@ -8,45 +8,55 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Bez przewijania + Złoty kolor + Comic Sans + Ciemne tło) ---
+# --- STYLOWANIE CSS (Kompaktowa tabela + Mniejsza czcionka) ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
     
-    /* Ogólna czcionka Comic Sans dla aplikacji */
+    /* Czcionka Comic Sans dla całej aplikacji */
     html, body, [class*="css"], .stMarkdown, table {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
 
-    /* Złoty kolor tekstu dla całej tabeli st.table i nagłówków */
-    div[data-testid="stTable"] table *, h3 {
+    /* Złoty kolor i mniejsza czcionka dla tabeli */
+    div[data-testid="stTable"] table * {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
-        font-size: 18px !important;
+        font-size: 14px !important; /* Zmniejszona czcionka */
     }
 
-    /* Ciemnoszare tło dla całej tabeli */
+    /* Tytuł nagłówka H3 */
+    h3 {
+        color: #D4AF37 !important;
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+        font-size: 20px !important;
+    }
+
+    /* Zawężona tabela – nie rozciąga się na cały ekran */
     div[data-testid="stTable"] table {
         background-color: #1A1A1A !important;
         border-collapse: collapse !important;
-        width: 100% !important;
-        border-radius: 8px !important;
+        max-width: 680px !important; /* Maksymalna szerokość tabeli */
+        width: auto !important;
+        border-radius: 6px !important;
         overflow: hidden !important;
     }
 
-    /* Tło i obramowanie dla komórek wierszy */
+    /* Bardziej kompaktowe komórki (mniej wolnej przestrzeni) */
     div[data-testid="stTable"] td {
         background-color: #1A1A1A !important;
         border-bottom: 1px solid #282828 !important;
-        padding: 6px 12px !important;
+        padding: 4px 10px !important; /* Węższe rubryki pionowo i poziomo */
+        white-space: nowrap !important;
     }
 
-    /* Tło dla nagłówka tabeli */
+    /* Kompaktowe nagłówki tabeli */
     div[data-testid="stTable"] th {
         background-color: #141414 !important;
         border-bottom: 2px solid #333333 !important;
-        padding: 8px 12px !important;
+        padding: 6px 10px !important;
         text-align: left !important;
+        white-space: nowrap !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -163,7 +173,7 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# Tabela z wynikami (użycie st.table gwarantuje brak paska scrolla)
+# Tabela z wynikami
 st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
 df = pd.DataFrame(processed_games)
