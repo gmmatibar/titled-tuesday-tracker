@@ -8,6 +8,42 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
+# --- STYLOWANIE CSS (Złoty kolor + Comic Sans + Tło inspirowane grafiką) ---
+st.markdown("""
+    <style>
+    @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
+    
+    /* Ogólna czcionka Comic Sans dla aplikacji */
+    html, body, [class*="css"], .stMarkdown, div[data-testid="stTable"], div[data-testid="stDataFrame"] {
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+    }
+
+    /* Złoty kolor tekstu dla tabeli i nagłówka */
+    div[data-testid="stDataFrame"] *, h3 {
+        color: #D4AF37 !important;
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+    }
+
+    /* Ciemnoszare tło dla całej tabeli (kolor z paska pod kamerką) */
+    div[data-testid="stDataFrame"] {
+        background-color: #1A1A1A !important;
+        border: none !important;
+    }
+
+    /* Tło dla pojedynczych komórek oraz nagłówków */
+    div[data-testid="stDataFrame"] [role="gridcell"], 
+    div[data-testid="stDataFrame"] [role="columnheader"] {
+        background-color: #1A1A1A !important;
+        border-bottom: 1px solid #282828 !important; /* Dyskretna linia podziału */
+    }
+
+    /* Tło dla nagłówków tabeli (nieco ciemniejsza wersja) */
+    div[data-testid="stDataFrame"] [role="columnheader"] {
+        background-color: #141414 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- PANEL STEROWANIA TURNIEJEM (W panelu bocznym) ---
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
@@ -106,7 +142,7 @@ for i in range(11):
             "Rd.": current_rd,
             "Przeciwnik": opponent_username,
             "Imię i nazwisko": opp_real_name,
-            "Ranking": str(opp_rating),
+            "Ranking": opp_rating,
             "Kolor": "⚪" if is_white else "⚫",
             "Wynik": result_text
         })
@@ -120,96 +156,25 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# --- GENEROWANIE TABELI Z PRECYZYJNĄ SZEROKOŚCIĄ KOLUMN ---
-html_code = """
-<style>
-    @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
+# Tabela z wynikami
+st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
-    .custom-table-container {
-        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif;
-        color: #D4AF37;
-        background-color: #1A1A1A;
-        padding: 15px 20px;
-        border-radius: 8px;
-        display: inline-block;
+df = pd.DataFrame(processed_games)
+
+st.dataframe(
+    df, 
+    use_container_width=False, 
+    hide_index=True,
+    height=425,
+    column_config={
+        "Rd.": st.column_config.NumberColumn("Rd.", width=50),
+        "Przeciwnik": st.column_config.TextColumn("Przeciwnik", width=160),
+        "Imię i nazwisko": st.column_config.TextColumn("Imię i nazwisko", width=200),
+        "Ranking": st.column_config.TextColumn("Ranking", width=80),
+        "Kolor": st.column_config.TextColumn("Kolor", width=60),
+        "Wynik": st.column_config.TextColumn("Wynik", width=120),
     }
-
-    .custom-table-title {
-        font-size: 24px;
-        font-weight: bold;
-        margin-bottom: 15px;
-        color: #D4AF37;
-    }
-
-    .custom-table {
-        border-collapse: collapse;
-        table-layout: fixed; /* Zapobiega rozjeżdżaniu się szerokości */
-        font-size: 20px; /* Powiększona czcionka */
-    }
-
-    .custom-table th, .custom-table td {
-        padding: 6px 12px;
-        text-align: left;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        color: #D4AF37;
-    }
-
-    .custom-table th {
-        background-color: #141414;
-        border-bottom: 2px solid #333;
-    }
-
-    .custom-table td {
-        border-bottom: 1px solid #282828;
-    }
-
-    /* Sztywne szerokości poszczególnych kolumn */
-    .col-rd { width: 60px; text-align: center !important; }
-    .col-nick { width: 180px; }
-    .col-name { width: 230px; }
-    .col-rank { width: 100px; }
-    .col-color { width: 70px; text-align: center !important; }
-    .col-res { width: 140px; }
-</style>
-
-<div class="custom-table-container">
-    <div class="custom-table-title">📊 Wyniki w Titled Tuesday na żywo</div>
-    <table class="custom-table">
-        <thead>
-            <tr>
-                <th class="col-rd">Rd.</th>
-                <th class="col-nick">Przeciwnik</th>
-                <th class="col-name">Imię i nazwisko</th>
-                <th class="col-rank">Ranking</th>
-                <th class="col-color">Kolor</th>
-                <th class="col-res">Wynik</th>
-            </tr>
-        </thead>
-        <tbody>
-"""
-
-for row in processed_games:
-    html_code += f"""
-            <tr>
-                <td class="col-rd">{row['Rd.']}</td>
-                <td class="col-nick">{row['Przeciwnik']}</td>
-                <td class="col-name">{row['Imię i nazwisko']}</td>
-                <td class="col-rank">{row['Ranking']}</td>
-                <td class="col-color">{row['Kolor']}</td>
-                <td class="col-res">{row['Wynik']}</td>
-            </tr>
-    """
-
-html_code += """
-        </tbody>
-    </table>
-</div>
-"""
-
-# Renderowanie tabeli HTML
-st.markdown(html_code, unsafe_allow_html=True)
+)
 
 # Odświeżanie co 20 sekund
 time.sleep(20)
