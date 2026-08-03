@@ -8,7 +8,7 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Zawężone kolumny + Złoty kolor) ---
+# --- STYLOWANIE CSS (Sztywne, mocno zawężone kolumny) ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
@@ -22,7 +22,7 @@ st.markdown("""
     div[data-testid="stTable"] table * {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
-        font-size: 14px !important;
+        font-size: 13px !important;
     }
 
     /* Tytuł nagłówka H3 */
@@ -32,21 +32,24 @@ st.markdown("""
         font-size: 20px !important;
     }
 
-    /* Tabela - kompaktowa całość */
+    /* Tabela – wymuszenie sztywnego układu kolumn (table-layout: fixed) */
     div[data-testid="stTable"] table {
         background-color: #1A1A1A !important;
         border-collapse: collapse !important;
-        width: auto !important;
+        table-layout: fixed !important; /* Blokuje rozciąganie tabeli przez tekst */
+        width: 440px !important; /* Łączna szerokość całej tabeli */
         border-radius: 6px !important;
         overflow: hidden !important;
     }
 
-    /* Kompaktowe marginesy wewnętrzne komórek */
+    /* Kompaktowe marginesy wewnętrzne komórek oraz obcinanie długiego tekstu */
     div[data-testid="stTable"] td, div[data-testid="stTable"] th {
         background-color: #1A1A1A !important;
         border-bottom: 1px solid #282828 !important;
-        padding: 4px 8px !important;
+        padding: 3px 6px !important;
         white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important; /* Dodaje '...' przy zbyt długim tekście */
     }
 
     /* Tło nagłówka */
@@ -56,26 +59,15 @@ st.markdown("""
         text-align: left !important;
     }
 
-    /* DOPASOWANIE SZEROKOŚCI KOLUMN */
+    /* PRECYZYJNE, SZTYWNE SZEROKOŚCI KOLUMN (Łącznie: 440px) */
+    div[data-testid="stTable"] th:nth-child(1), div[data-testid="stTable"] td:nth-child(1) { width: 40px !important; }  /* Rd. */
+    div[data-testid="stTable"] th:nth-child(2), div[data-testid="stTable"] td:nth-child(2) { width: 90px !important; }  /* Przeciwnik (MOCNO ZAWĘŻONE) */
+    div[data-testid="stTable"] th:nth-child(3), div[data-testid="stTable"] td:nth-child(3) { width: 130px !important; } /* Imię i nazwisko (MOCNO ZAWĘŻONE) */
+    div[data-testid="stTable"] th:nth-child(4), div[data-testid="stTable"] td:nth-child(4) { width: 70px !important; }  /* Ranking */
+    div[data-testid="stTable"] th:nth-child(5), div[data-testid="stTable"] td:nth-child(5) { width: 50px !important; }  /* Kolor */
+    div[data-testid="stTable"] th:nth-child(6), div[data-testid="stTable"] td:nth-child(6) { width: 60px !important; }  /* Wynik */
 
-    /* Kolumny zwarte (dopasowane ściśle do tekstu/nagłówka) */
-    div[data-testid="stTable"] th:nth-child(1), div[data-testid="stTable"] td:nth-child(1), /* Rd. */
-    div[data-testid="stTable"] th:nth-child(4), div[data-testid="stTable"] td:nth-child(4), /* Ranking */
-    div[data-testid="stTable"] th:nth-child(5), div[data-testid="stTable"] td:nth-child(5), /* Kolor */
-    div[data-testid="stTable"] th:nth-child(6), div[data-testid="stTable"] td:nth-child(6)  /* Wynik */ {
-        width: 1% !important;
-    }
-
-    /* Zawężone kolumny tekstowe o połowę */
-    div[data-testid="stTable"] th:nth-child(2), div[data-testid="stTable"] td:nth-child(2) {
-        min-width: 70px !important; /* Przeciwnik */
-    }
-
-    div[data-testid="stTable"] th:nth-child(3), div[data-testid="stTable"] td:nth-child(3) {
-        min-width: 100px !important; /* Imię i nazwisko */
-    }
-
-    /* Wyśrodkowanie rundy, koloru i wyniku */
+    /* Wyśrodkowanie wybranej zawartości */
     div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
     div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5),
     div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
