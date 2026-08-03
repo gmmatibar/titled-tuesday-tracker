@@ -82,13 +82,19 @@ for game in all_month_games:
         if not filter_blitz or time_class == 'blitz':
             filtered_games.append(game)
 
-if not filtered_games:
-    st.info(f"Brak partii dla gracza **{USERNAME}** rozegranych po {start_datetime.strftime('%Y-%m-%d %H:%M')}.")
-else:
-    processed_games = []
-    total_score = 0.0
+# Generowanie tabeli na stałe 11 rund
+processed_games = []
+total_score = 0.0
+played_games_count = len(filtered_games)
 
-    for idx, game in enumerate(filtered_games, start=int(start_round)):
+start_rd = int(start_round)
+
+for i in range(11):
+    current_rd = start_rd + i
+    
+    # Jeśli runda została już rozegrana – wpisujemy dane z API
+    if i < played_games_count:
+        game = filtered_games[i]
         white = game['white']['username']
         black = game['black']['username']
         
@@ -98,48 +104,56 @@ else:
         player_result_code = game['white']['result'] if is_white else game['black']['result']
         
         opp_real_name = get_player_name(opponent_username)
-        
         score_add, result_text = parse_result(player_result_code)
         total_score += score_add
 
         processed_games.append({
-            "Rd.": idx,
+            "Rd.": current_rd,
             "Przeciwnik": opponent_username,
             "Imię i nazwisko": opp_real_name,
             "Ranking": opp_rating,
             "Kolor": "⚪" if is_white else "⚫",
             "Wynik": result_text
         })
+    else:
+        # Puste wiersze dla nadchodzących rund
+        processed_games.append({
+            "Rd.": current_rd,
+            "Przeciwnik": "—",
+            "Imię i nazwisko": "—",
+            "Ranking": "—",
+            "Kolor": "—",
+            "Wynik": "—"
+        })
 
-    # Metryki na górze strony
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Gracz", USERNAME)
-    col2.metric("Rozegrane rundy", len(processed_games))
-    col3.metric("Zdobyte punkty", f"{total_score} / {len(processed_games)}")
+# Metryki na górze strony
+col1, col2, col3 = st.columns(3)
+col1.metric("Gracz", USERNAME)
+col2.metric("Rozegrane rundy", f"{played_games_count} / 11")
+col3.metric("Zdobyte punkty", f"{total_score} / {played_games_count}")
 
-    st.markdown("---")
-    st.subheader("📊 Wyniki w Titled Tuesday na żywo")
+st.markdown("---")
+st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
-    df = pd.DataFrame(processed_games)
-    
-    # Wyłączenie usening_container_width i dokładna konfiguracja kolumn
-    st.dataframe(
-        df, 
-        use_container_width=False, 
-        hide_index=True,
-        column_config={
-            "Rd.": st.column_config.NumberColumn("Rd.", width=50),
-            "Przeciwnik": st.column_config.TextColumn("Przeciwnik", width=160),
-            "Imię i nazwisko": st.column_config.TextColumn("Imię i nazwisko", width=200),
-            "Ranking": st.column_config.NumberColumn("Ranking", width=80),
-            "Kolor": st.column_config.TextColumn("Kolor", width=60),
-            "Wynik": st.column_config.TextColumn("Wynik", width=120),
-        }
-    )
+df = pd.DataFrame(processed_games)
 
-    # --- PODSUMOWANIE / WYNIK POD TABELĄ ---
-    st.markdown("---")
-    st.markdown(f"### Wynik {total_score}/{len(processed_games)}")
+st.dataframe(
+    df, 
+    use_container_width=False, 
+    hide_index=True,
+    column_config={
+        "Rd.": st.column_config.NumberColumn("Rd.", width=50),
+        "Przeciwnik": st.column_config.TextColumn("Przeciwnik", width=160),
+        "Imię i nazwisko": st.column_config.TextColumn("Imię i nazwisko", width=200),
+        "Ranking": st.column_config.TextColumn("Ranking", width=80),
+        "Kolor": st.column_config.TextColumn("Kolor", width=60),
+        "Wynik": st.column_config.TextColumn("Wynik", width=120),
+    }
+)
+
+# --- PODSUMOWANIE / WYNIK POD TABELĄ ---
+st.markdown("---")
+st.markdown(f"### Wynik {total_score}/{played_games_count}")
 
 # Odświeżanie co 20 sekund
 time.sleep(20)
