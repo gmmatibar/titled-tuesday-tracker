@@ -8,54 +8,90 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS ---
+# --- STYLOWANIE CSS (Wymuszenie wymiarów bezpośrednio na tabeli Streamlit) ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
     
-    html, body, [class*="css"], .stMarkdown {
+    /* Czcionka Comic Sans dla całej aplikacji */
+    html, body, [class*="css"], .stMarkdown, table {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
 
+    /* Złoty kolor i mniejsza czcionka dla tabeli */
+    div[data-testid="stTable"] table * {
+        color: #D4AF37 !important;
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+        font-size: 13px !important;
+    }
+
+    /* Tytuł nagłówka H3 */
     h3 {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
         font-size: 20px !important;
     }
 
-    /* Dedykowane style dla własnej tabeli HTML */
-    .custom-table {
-        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
-        font-size: 13px !important;
-        color: #D4AF37 !important;
-        background-color: #1A1A1A;
-        border-collapse: collapse;
-        table-layout: fixed; /* BARDZO WAŻNE: sztywne wymiary */
-        width: 400px; /* Łączna szerokość sumy kolumn */
-        border-radius: 6px;
-        overflow: hidden;
-        border: 1px solid #282828;
+    /* Tabela Streamlit – Wymuszenie stałego układu i szerokości */
+    div[data-testid="stTable"] {
+        width: 380px !important; /* Łączna szerokość kontenera tabeli */
     }
 
-    .custom-table th {
-        background-color: #141414;
-        color: #D4AF37;
-        border-bottom: 2px solid #333333;
-        padding: 4px 2px;
-        text-align: left;
+    div[data-testid="stTable"] table {
+        background-color: #1A1A1A !important;
+        border-collapse: collapse !important;
+        table-layout: fixed !important;
+        width: 100% !important;
+        border-radius: 6px !important;
+        overflow: hidden !important;
     }
 
-    .custom-table td {
-        border-bottom: 1px solid #282828;
-        padding: 3px 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    /* Kompaktowe marginesy i obcinanie tekstu */
+    div[data-testid="stTable"] td, div[data-testid="stTable"] th {
+        background-color: #1A1A1A !important;
+        border-bottom: 1px solid #282828 !important;
+        padding: 4px 3px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 
-    /* Wyśrodkowanie konkretnych kolumn */
-    .custom-table .center {
-        text-align: center;
+    div[data-testid="stTable"] th {
+        background-color: #141414 !important;
+        border-bottom: 2px solid #333333 !important;
+        text-align: left !important;
+    }
+
+    /* PRECYZYJNE WARTOŚCI PROCENTOWE/PIKSELOWE DLA KAŻDEJ KOLUMNY */
+    /* 1. Rd. (~32px) */
+    div[data-testid="stTable"] table th:nth-child(1),
+    div[data-testid="stTable"] table td:nth-child(1) { width: 32px !important; max-width: 32px !important; }
+    
+    /* 2. Przeciwnik */
+    div[data-testid="stTable"] table th:nth-child(2),
+    div[data-testid="stTable"] table td:nth-child(2) { width: 90px !important; max-width: 90px !important; }
+    
+    /* 3. Imię i nazwisko */
+    div[data-testid="stTable"] table th:nth-child(3),
+    div[data-testid="stTable"] table td:nth-child(3) { width: 120px !important; max-width: 120px !important; }
+    
+    /* 4. Ranking (~55px) */
+    div[data-testid="stTable"] table th:nth-child(4),
+    div[data-testid="stTable"] table td:nth-child(4) { width: 55px !important; max-width: 55px !important; }
+    
+    /* 5. Kolor (~40px) */
+    div[data-testid="stTable"] table th:nth-child(5),
+    div[data-testid="stTable"] table td:nth-child(5) { width: 40px !important; max-width: 40px !important; }
+    
+    /* 6. Wynik (~43px) */
+    div[data-testid="stTable"] table th:nth-child(6),
+    div[data-testid="stTable"] table td:nth-child(6) { width: 43px !important; max-width: 43px !important; }
+
+    /* Wyśrodkowanie wybranej zawartości */
+    div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
+    div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5),
+    div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
+        text-align: center !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -82,6 +118,7 @@ start_timestamp = int(start_datetime.timestamp())
 
 @st.cache_data(ttl=3600)
 def get_player_name(username):
+    """Pobiera imię i nazwisko gracza z jego profilu na Chess.com"""
     headers = {'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'}
     url = f"https://api.chess.com/pub/player/{username}"
     try:
@@ -117,6 +154,7 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
+# Pobieranie partii
 all_month_games = get_player_games(USERNAME)
 
 filtered_games = []
@@ -128,6 +166,7 @@ for game in all_month_games:
         if not filter_blitz or time_class == 'blitz':
             filtered_games.append(game)
 
+# Generowanie tabeli na stałe 11 rund
 processed_games = []
 total_score = 0.0
 played_games_count = len(filtered_games)
@@ -169,42 +208,12 @@ for i in range(11):
             "Wynik": "—"
         })
 
+# Tabela z wynikami
 st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
-# --- GENEROWANIE TABELI HTML ZE SZTYWNYMI SZEROKOŚCIAMI ---
-html_table = """
-<table class="custom-table">
-    <thead>
-        <tr>
-            <th style="width: 30px;" class="center">Rd.</th>
-            <th style="width: 90px;">Przeciwnik</th>
-            <th style="width: 130px;">Imię i nazwisko</th>
-            <th style="width: 60px;">Ranking</th>
-            <th style="width: 45px;" class="center">Kolor</th>
-            <th style="width: 45px;" class="center">Wynik</th>
-        </tr>
-    </thead>
-    <tbody>
-"""
+df = pd.DataFrame(processed_games)
+st.table(df)
 
-for row in processed_games:
-    html_table += f"""
-        <tr>
-            <td class="center">{row['Rd.']}</td>
-            <td title="{row['Przeciwnik']}">{row['Przeciwnik']}</td>
-            <td title="{row['Imię i nazwisko']}">{row['Imię i nazwisko']}</td>
-            <td>{row['Ranking']}</td>
-            <td class="center">{row['Kolor']}</td>
-            <td class="center">{row['Wynik']}</td>
-        </tr>
-    """
-
-html_table += """
-    </tbody>
-</table>
-"""
-
-st.markdown(html_table, unsafe_allow_html=True)
-
+# Odświeżanie co 20 sekund
 time.sleep(20)
 st.rerun()
