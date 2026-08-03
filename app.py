@@ -120,7 +120,7 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# --- GENEROWANIE DEDYKOWANEJ TABELI HTML Z COMIC SANS I ZŁOTYM KOLOREM ---
+# --- GENEROWANIE TABELI Z PRECYZYJNĄ SZEROKOŚCIĄ KOLUMN ---
 html_code = """
 <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
@@ -129,9 +129,9 @@ html_code = """
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif;
         color: #D4AF37;
         background-color: #1A1A1A;
-        padding: 15px;
+        padding: 15px 20px;
         border-radius: 8px;
-        width: fit-content;
+        display: inline-block;
     }
 
     .custom-table-title {
@@ -143,27 +143,35 @@ html_code = """
 
     .custom-table {
         border-collapse: collapse;
-        width: 100%;
-        font-size: 19px; /* Powiększony rozmiar czcionki */
+        table-layout: fixed; /* Zapobiega rozjeżdżaniu się szerokości */
+        font-size: 20px; /* Powiększona czcionka */
+    }
+
+    .custom-table th, .custom-table td {
+        padding: 6px 12px;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #D4AF37;
     }
 
     .custom-table th {
         background-color: #141414;
-        color: #D4AF37;
-        text-align: left;
-        padding: 8px 14px;
         border-bottom: 2px solid #333;
     }
 
     .custom-table td {
-        padding: 6px 14px;
         border-bottom: 1px solid #282828;
-        color: #D4AF37;
     }
 
-    .custom-table tr:hover {
-        background-color: #242424;
-    }
+    /* Sztywne szerokości poszczególnych kolumn */
+    .col-rd { width: 60px; text-align: center !important; }
+    .col-nick { width: 180px; }
+    .col-name { width: 230px; }
+    .col-rank { width: 100px; }
+    .col-color { width: 70px; text-align: center !important; }
+    .col-res { width: 140px; }
 </style>
 
 <div class="custom-table-container">
@@ -171,12 +179,12 @@ html_code = """
     <table class="custom-table">
         <thead>
             <tr>
-                <th>Rd.</th>
-                <th>Przeciwnik</th>
-                <th>Imię i nazwisko</th>
-                <th>Ranking</th>
-                <th>Kolor</th>
-                <th>Wynik</th>
+                <th class="col-rd">Rd.</th>
+                <th class="col-nick">Przeciwnik</th>
+                <th class="col-name">Imię i nazwisko</th>
+                <th class="col-rank">Ranking</th>
+                <th class="col-color">Kolor</th>
+                <th class="col-res">Wynik</th>
             </tr>
         </thead>
         <tbody>
@@ -185,12 +193,12 @@ html_code = """
 for row in processed_games:
     html_code += f"""
             <tr>
-                <td>{row['Rd.']}</td>
-                <td>{row['Przeciwnik']}</td>
-                <td>{row['Imię i nazwisko']}</td>
-                <td>{row['Ranking']}</td>
-                <td>{row['Kolor']}</td>
-                <td>{row['Wynik']}</td>
+                <td class="col-rd">{row['Rd.']}</td>
+                <td class="col-nick">{row['Przeciwnik']}</td>
+                <td class="col-name">{row['Imię i nazwisko']}</td>
+                <td class="col-rank">{row['Ranking']}</td>
+                <td class="col-color">{row['Kolor']}</td>
+                <td class="col-res">{row['Wynik']}</td>
             </tr>
     """
 
