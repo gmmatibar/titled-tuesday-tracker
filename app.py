@@ -120,13 +120,7 @@ else:
 
     # --- PODSUMOWANIE / WYNIK POD TABELĄ ---
     st.markdown("---")
-    pct_score = (total_score / len(processed_games)) * 100 if processed_games else 0
-    
-    st.markdown(f"### 🎯 Wynik od godziny {selected_time.strftime('%H:%M')}")
-    st.success(
-        f"**Łączny wynik:** `{total_score} / {len(processed_games)} pkt` "
-        f"({pct_score:.1f}% możliwych punktów w {len(processed_games)} rundach)"
-    )
+    st.markdown(f"### Wynik {total_score}/{len(processed_games)}")
 
 # Odświeżanie co 20 sekund
 time.sleep(20)
