@@ -75,9 +75,10 @@ st.markdown("""
         min-width: 200px !important; /* Imię i nazwisko */
     }
 
-    /* Wyśrodkowanie rundy i koloru */
+    /* Wyśrodkowanie rundy, koloru i wyniku */
     div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
-    div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5) {
+    div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5),
+    div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
         text-align: center !important;
     }
     </style>
@@ -135,11 +136,11 @@ def parse_result(result_code):
     win_codes = ['win']
     draw_codes = ['agreed', 'repetition', 'stalemate', 'insufficient', '50move', 'timevsinsufficient']
     if result_code in win_codes:
-        return 1.0, "🟢 Wygrana"
+        return 1.0, "W"
     elif result_code in draw_codes:
-        return 0.5, "🟡 Remis"
+        return 0.5, "R"
     else:
-        return 0.0, "🔴 Przegrana"
+        return 0.0, "P"
 
 # Pobieranie partii
 all_month_games = get_player_games(USERNAME)
