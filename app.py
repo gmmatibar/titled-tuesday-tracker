@@ -8,26 +8,38 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Złoty kolor + Comic Sans + Usunięcie przewijania) ---
+# --- STYLOWANIE CSS (Złoty kolor + Comic Sans + Tło inspirowane grafiką) ---
 st.markdown("""
     <style>
-    /* Wymuszenie czcionki Comic Sans MS oraz złotego koloru dla tabeli */
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
     
+    /* Ogólna czcionka Comic Sans dla aplikacji */
     html, body, [class*="css"], .stMarkdown, div[data-testid="stTable"], div[data-testid="stDataFrame"] {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
 
-    /* Złoty kolor tekstu w komórkach i nagłówkach tabeli */
-    div[data-testid="stDataFrame"] * {
+    /* Złoty kolor tekstu dla tabeli i nagłówka */
+    div[data-testid="stDataFrame"] *, h3 {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
-    
-    /* Dodatkowy złoty akcent dla nagłówka */
-    h3 {
-        color: #D4AF37 !important;
-        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+
+    /* Ciemnoszare tło dla całej tabeli (kolor z paska pod kamerką) */
+    div[data-testid="stDataFrame"] {
+        background-color: #1A1A1A !important;
+        border: none !important;
+    }
+
+    /* Tło dla pojedynczych komórek oraz nagłówków */
+    div[data-testid="stDataFrame"] [role="gridcell"], 
+    div[data-testid="stDataFrame"] [role="columnheader"] {
+        background-color: #1A1A1A !important;
+        border-bottom: 1px solid #282828 !important; /* Dyskretna linia podziału */
+    }
+
+    /* Tło dla nagłówków tabeli (nieco ciemniejsza wersja) */
+    div[data-testid="stDataFrame"] [role="columnheader"] {
+        background-color: #141414 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -149,7 +161,6 @@ st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
 df = pd.DataFrame(processed_games)
 
-# Wysokość (height=425) odpowiada idealnie zestawowi 11 wierszy bez paska przewijania
 st.dataframe(
     df, 
     use_container_width=False, 
