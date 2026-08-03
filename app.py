@@ -8,42 +8,6 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Większa czcionka Comic Sans, Złoty kolor, Ciemne tło) ---
-st.markdown("""
-    <style>
-    @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
-    
-    /* Ogólne ustawienia dla całej strony */
-    html, body, [class*="css"], .stApp, .stMarkdown, h3 {
-        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
-        font-size: 18px !important;
-        color: #D4AF37 !important;
-    }
-
-    /* Tło całej strony / kontenera tabeli */
-    div[data-testid="stDataFrame"], div[data-testid="stTable"] {
-        background-color: #1A1A1A !important;
-        border-radius: 8px;
-        padding: 5px;
-    }
-
-    /* Wygląd tabeli - nagłówki, komórki, teksty */
-    div[data-testid="stDataFrame"] *, 
-    div[data-testid="stTable"] *, 
-    .stDataFrame canvas {
-        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
-        color: #D4AF37 !important;
-        background-color: #1A1A1A !important;
-    }
-
-    /* Powiększenie nagłówka */
-    h3 {
-        font-size: 24px !important;
-        margin-bottom: 10px !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # --- PANEL STEROWANIA TURNIEJEM (W panelu bocznym) ---
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
@@ -142,7 +106,7 @@ for i in range(11):
             "Rd.": current_rd,
             "Przeciwnik": opponent_username,
             "Imię i nazwisko": opp_real_name,
-            "Ranking": opp_rating,
+            "Ranking": str(opp_rating),
             "Kolor": "⚪" if is_white else "⚫",
             "Wynik": result_text
         })
@@ -156,25 +120,88 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# Nagłówek i Tabela
-st.subheader("📊 Wyniki w Titled Tuesday na żywo")
+# --- GENEROWANIE DEDYKOWANEJ TABELI HTML Z COMIC SANS I ZŁOTYM KOLOREM ---
+html_code = """
+<style>
+    @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
 
-df = pd.DataFrame(processed_games)
-
-st.dataframe(
-    df, 
-    use_container_width=False, 
-    hide_index=True,
-    height=460, # Lekko powiększona wysokość pod większą czcionkę
-    column_config={
-        "Rd.": st.column_config.NumberColumn("Rd.", width=55),
-        "Przeciwnik": st.column_config.TextColumn("Przeciwnik", width=170),
-        "Imię i nazwisko": st.column_config.TextColumn("Imię i nazwisko", width=220),
-        "Ranking": st.column_config.TextColumn("Ranking", width=90),
-        "Kolor": st.column_config.TextColumn("Kolor", width=70),
-        "Wynik": st.column_config.TextColumn("Wynik", width=130),
+    .custom-table-container {
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif;
+        color: #D4AF37;
+        background-color: #1A1A1A;
+        padding: 15px;
+        border-radius: 8px;
+        width: fit-content;
     }
-)
+
+    .custom-table-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #D4AF37;
+    }
+
+    .custom-table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 19px; /* Powiększony rozmiar czcionki */
+    }
+
+    .custom-table th {
+        background-color: #141414;
+        color: #D4AF37;
+        text-align: left;
+        padding: 8px 14px;
+        border-bottom: 2px solid #333;
+    }
+
+    .custom-table td {
+        padding: 6px 14px;
+        border-bottom: 1px solid #282828;
+        color: #D4AF37;
+    }
+
+    .custom-table tr:hover {
+        background-color: #242424;
+    }
+</style>
+
+<div class="custom-table-container">
+    <div class="custom-table-title">📊 Wyniki w Titled Tuesday na żywo</div>
+    <table class="custom-table">
+        <thead>
+            <tr>
+                <th>Rd.</th>
+                <th>Przeciwnik</th>
+                <th>Imię i nazwisko</th>
+                <th>Ranking</th>
+                <th>Kolor</th>
+                <th>Wynik</th>
+            </tr>
+        </thead>
+        <tbody>
+"""
+
+for row in processed_games:
+    html_code += f"""
+            <tr>
+                <td>{row['Rd.']}</td>
+                <td>{row['Przeciwnik']}</td>
+                <td>{row['Imię i nazwisko']}</td>
+                <td>{row['Ranking']}</td>
+                <td>{row['Kolor']}</td>
+                <td>{row['Wynik']}</td>
+            </tr>
+    """
+
+html_code += """
+        </tbody>
+    </table>
+</div>
+"""
+
+# Renderowanie tabeli HTML
+st.markdown(html_code, unsafe_allow_html=True)
 
 # Odświeżanie co 20 sekund
 time.sleep(20)
