@@ -8,6 +8,30 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
+# --- STYLOWANIE CSS (Złoty kolor + Comic Sans + Usunięcie przewijania) ---
+st.markdown("""
+    <style>
+    /* Wymuszenie czcionki Comic Sans MS oraz złotego koloru dla tabeli */
+    @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
+    
+    html, body, [class*="css"], .stMarkdown, div[data-testid="stTable"], div[data-testid="stDataFrame"] {
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+    }
+
+    /* Złoty kolor tekstu w komórkach i nagłówkach tabeli */
+    div[data-testid="stDataFrame"] * {
+        color: #D4AF37 !important;
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+    }
+    
+    /* Dodatkowy złoty akcent dla nagłówka */
+    h3 {
+        color: #D4AF37 !important;
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- PANEL STEROWANIA TURNIEJEM (W panelu bocznym) ---
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
@@ -88,7 +112,6 @@ start_rd = int(start_round)
 for i in range(11):
     current_rd = start_rd + i
     
-    # Jeśli runda została już rozegrana – wpisujemy dane z API
     if i < played_games_count:
         game = filtered_games[i]
         white = game['white']['username']
@@ -112,7 +135,6 @@ for i in range(11):
             "Wynik": result_text
         })
     else:
-        # Puste wiersze dla nadchodzących rund
         processed_games.append({
             "Rd.": current_rd,
             "Przeciwnik": "—",
@@ -127,10 +149,12 @@ st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
 df = pd.DataFrame(processed_games)
 
+# Wysokość (height=425) odpowiada idealnie zestawowi 11 wierszy bez paska przewijania
 st.dataframe(
     df, 
     use_container_width=False, 
     hide_index=True,
+    height=425,
     column_config={
         "Rd.": st.column_config.NumberColumn("Rd.", width=50),
         "Przeciwnik": st.column_config.TextColumn("Przeciwnik", width=160),
