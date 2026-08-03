@@ -8,8 +8,6 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-st.title(f"🏆 Titled Tuesday — Live Tracker: {USERNAME}")
-
 # --- PANEL STEROWANIA TURNIEJEM (W panelu bocznym) ---
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
@@ -29,8 +27,6 @@ filter_blitz = st.sidebar.checkbox("Filtruj tylko partie Blitz", value=True)
 
 start_datetime = datetime.combine(selected_date, selected_time)
 start_timestamp = int(start_datetime.timestamp())
-
-st.caption(f"Śledzenie partii od: **{start_datetime.strftime('%Y-%m-%d %H:%M')}**. Strona odświeża się automatycznie co 20 sekund.")
 
 @st.cache_data(ttl=3600)
 def get_player_name(username):
@@ -126,13 +122,7 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# Metryki na górze strony
-col1, col2, col3 = st.columns(3)
-col1.metric("Gracz", USERNAME)
-col2.metric("Rozegrane rundy", f"{played_games_count} / 11")
-col3.metric("Zdobyte punkty", f"{total_score} / {played_games_count}")
-
-st.markdown("---")
+# Tabela z wynikami
 st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
 df = pd.DataFrame(processed_games)
@@ -150,10 +140,6 @@ st.dataframe(
         "Wynik": st.column_config.TextColumn("Wynik", width=120),
     }
 )
-
-# --- PODSUMOWANIE / WYNIK POD TABELĄ ---
-st.markdown("---")
-st.markdown(f"### Wynik {total_score}/{played_games_count}")
 
 # Odświeżanie co 20 sekund
 time.sleep(20)
