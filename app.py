@@ -8,70 +8,54 @@ st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layo
 
 USERNAME = "Matibar"
 
-# --- STYLOWANIE CSS (Dopasowane, sztywne szerokości kolumn) ---
+# --- STYLOWANIE CSS ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
     
-    /* Czcionka Comic Sans dla całej aplikacji */
-    html, body, [class*="css"], .stMarkdown, table {
+    html, body, [class*="css"], .stMarkdown {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
 
-    /* Złoty kolor i mniejsza czcionka dla tabeli */
-    div[data-testid="stTable"] table * {
-        color: #D4AF37 !important;
-        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
-        font-size: 13px !important;
-    }
-
-    /* Tytuł nagłówka H3 */
     h3 {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
         font-size: 20px !important;
     }
 
-    /* Tabela – wymuszenie sztywnego układu kolumn (table-layout: fixed) */
-    div[data-testid="stTable"] table {
-        background-color: #1A1A1A !important;
-        border-collapse: collapse !important;
-        table-layout: fixed !important; /* Blokuje rozciąganie tabeli przez tekst */
-        width: 402px !important; /* Łączna optymalna szerokość całej tabeli */
-        border-radius: 6px !important;
-        overflow: hidden !important;
+    /* Dedykowane style dla własnej tabeli HTML */
+    .custom-table {
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+        font-size: 13px !important;
+        color: #D4AF37 !important;
+        background-color: #1A1A1A;
+        border-collapse: collapse;
+        table-layout: fixed; /* BARDZO WAŻNE: sztywne wymiary */
+        width: 400px; /* Łączna szerokość sumy kolumn */
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #282828;
     }
 
-    /* Kompaktowe marginesy wewnętrzne komórek oraz obcinanie długiego tekstu */
-    div[data-testid="stTable"] td, div[data-testid="stTable"] th {
-        background-color: #1A1A1A !important;
-        border-bottom: 1px solid #282828 !important;
-        padding: 3px 4px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important; /* Dodaje '...' przy zbyt długim tekście */
+    .custom-table th {
+        background-color: #141414;
+        color: #D4AF37;
+        border-bottom: 2px solid #333333;
+        padding: 4px 2px;
+        text-align: left;
     }
 
-    /* Tło nagłówka */
-    div[data-testid="stTable"] th {
-        background-color: #141414 !important;
-        border-bottom: 2px solid #333333 !important;
-        text-align: left !important;
+    .custom-table td {
+        border-bottom: 1px solid #282828;
+        padding: 3px 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    /* SZTYWNE SZEROKOŚCI DOPASOWANE DO NAGŁÓWKÓW (Łącznie: 402px) */
-    div[data-testid="stTable"] th:nth-child(1), div[data-testid="stTable"] td:nth-child(1) { width: 32px !important; }  /* Rd. */
-    div[data-testid="stTable"] th:nth-child(2), div[data-testid="stTable"] td:nth-child(2) { width: 90px !important; }  /* Przeciwnik */
-    div[data-testid="stTable"] th:nth-child(3), div[data-testid="stTable"] td:nth-child(3) { width: 130px !important; } /* Imię i nazwisko */
-    div[data-testid="stTable"] th:nth-child(4), div[data-testid="stTable"] td:nth-child(4) { width: 60px !important; }  /* Ranking */
-    div[data-testid="stTable"] th:nth-child(5), div[data-testid="stTable"] td:nth-child(5) { width: 45px !important; }  /* Kolor */
-    div[data-testid="stTable"] th:nth-child(6), div[data-testid="stTable"] td:nth-child(6) { width: 45px !important; }  /* Wynik */
-
-    /* Wyśrodkowanie wybranej zawartości */
-    div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
-    div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5),
-    div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
-        text-align: center !important;
+    /* Wyśrodkowanie konkretnych kolumn */
+    .custom-table .center {
+        text-align: center;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -98,7 +82,6 @@ start_timestamp = int(start_datetime.timestamp())
 
 @st.cache_data(ttl=3600)
 def get_player_name(username):
-    """Pobiera imię i nazwisko gracza z jego profilu na Chess.com"""
     headers = {'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'}
     url = f"https://api.chess.com/pub/player/{username}"
     try:
@@ -134,7 +117,6 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-# Pobieranie partii
 all_month_games = get_player_games(USERNAME)
 
 filtered_games = []
@@ -146,7 +128,6 @@ for game in all_month_games:
         if not filter_blitz or time_class == 'blitz':
             filtered_games.append(game)
 
-# Generowanie tabeli na stałe 11 rund
 processed_games = []
 total_score = 0.0
 played_games_count = len(filtered_games)
@@ -188,12 +169,42 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# Tabela z wynikami
 st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
-df = pd.DataFrame(processed_games)
-st.table(df)
+# --- GENEROWANIE TABELI HTML ZE SZTYWNYMI SZEROKOŚCIAMI ---
+html_table = """
+<table class="custom-table">
+    <thead>
+        <tr>
+            <th style="width: 30px;" class="center">Rd.</th>
+            <th style="width: 90px;">Przeciwnik</th>
+            <th style="width: 130px;">Imię i nazwisko</th>
+            <th style="width: 60px;">Ranking</th>
+            <th style="width: 45px;" class="center">Kolor</th>
+            <th style="width: 45px;" class="center">Wynik</th>
+        </tr>
+    </thead>
+    <tbody>
+"""
 
-# Odświeżanie co 20 sekund
+for row in processed_games:
+    html_table += f"""
+        <tr>
+            <td class="center">{row['Rd.']}</td>
+            <td title="{row['Przeciwnik']}">{row['Przeciwnik']}</td>
+            <td title="{row['Imię i nazwisko']}">{row['Imię i nazwisko']}</td>
+            <td>{row['Ranking']}</td>
+            <td class="center">{row['Kolor']}</td>
+            <td class="center">{row['Wynik']}</td>
+        </tr>
+    """
+
+html_table += """
+    </tbody>
+</table>
+"""
+
+st.markdown(html_table, unsafe_allow_html=True)
+
 time.sleep(20)
 st.rerun()
