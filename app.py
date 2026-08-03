@@ -2,35 +2,46 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
-from datetime import datetime
+from datetime import datetime, date, timezone
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
 
 USERNAME = "Matibar"
 
 st.title(f"🏆 Titled Tuesday — Live Tracker: {USERNAME}")
-st.caption("Strona odświeża się automatycznie co 20 sekund.")
+
+# --- PANEL STEROWANIA TURNIEJEM (W panelu bocznym) ---
+st.sidebar.header("⚙️ Ustawienia Turnieju")
+
+selected_date = st.sidebar.date_input("Data turnieju", value=date.today())
+selected_time = st.sidebar.time_input("Godzina rozpoczęcia (np. 17:00)", value=datetime.strptime("17:00", "%H:%M").time())
+start_round = st.sidebar.number_input("Numer pierwszej rundy", min_value=1, value=1, step=1)
+filter_blitz = st.sidebar.checkbox("Filtruj tylko partie Blitz", value=True)
+
+# Połączenie daty i godziny w jeden znacznik czasu (pozwala na precyzyjne odfiltrowanie wcześniejszych partii)
+start_datetime = datetime.combine(selected_date, selected_time)
+start_timestamp = int(start_datetime.timestamp())
+
+st.caption(f"Śledzenie partii od: **{start_datetime.strftime('%Y-%m-%d %H:%M')}**. Strona odświeża się automatycznie co 20 sekund.")
 
 def get_player_games(username):
     headers = {
         'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'
     }
     
-    # 1. Pobieramy zakończone partie z obecnego miesiąca
-    now = datetime.now()
-    year = now.strftime("%Y")
-    month = now.strftime("%m")
+    # Pobieranie archiwum dla wybranego miesiąca
+    year = selected_date.strftime("%Y")
+    month = selected_date.strftime("%m")
     archive_url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month}"
     
-    games = []
     try:
         res = requests.get(archive_url, headers=headers, timeout=5)
         if res.status_code == 200:
-            games = res.json().get('games', [])
+            return res.json().get('games', [])
     except Exception as e:
-        st.error(f"Błąd pobierania archiwum: {e}")
+        st.error(f"Błąd pobierania danych z Chess.com: {e}")
         
-    return games
+    return []
 
 def parse_result(result_code):
     win_codes = ['win']
@@ -42,19 +53,28 @@ def parse_result(result_code):
     else:
         return 0.0, "🔴 Przegrana"
 
-# Pobieranie danych
-all_games = get_player_games(USERNAME)
+# Pobieranie partii
+all_month_games = get_player_games(USERNAME)
 
-if not all_games:
-    st.info(f"Brak zarejestrowanych partii dla gracza **{USERNAME}** w tym miesiącu.")
-else:
-    # Bierzemy ostatnie 15 partii
-    recent_games = all_games[-15:]
+# Filtrowanie partii po czasie rozpoczęcia i typie (blitz)
+filtered_games = []
+for game in all_month_games:
+    end_time = game.get('end_time', 0)
+    time_class = game.get('time_class', '')
     
+    # Warunek 1: Partia zakończona po wyznaczonej godzinie startu
+    if end_time >= start_timestamp:
+        # Warunek 2: Opcjonalne filtrowanie po blitzu
+        if not filter_blitz or time_class == 'blitz':
+            filtered_games.append(game)
+
+if not filtered_games:
+    st.info(f"Brak partii dla gracza **{USERNAME}** rozegranych po {start_datetime.strftime('%Y-%m-%d %H:%M')}.")
+else:
     processed_games = []
     total_score = 0.0
 
-    for idx, game in enumerate(recent_games, start=1):
+    for idx, game in enumerate(filtered_games, start=int(start_round)):
         white = game['white']['username']
         black = game['black']['username']
         
@@ -67,7 +87,7 @@ else:
         total_score += score_add
 
         processed_games.append({
-            "Runda / Gra": idx,
+            "Runda": idx,
             "Przeciwnik": opponent,
             "Ranking Przeciwnika": opp_rating,
             "Kolor": "⚪ Białe" if is_white else "⚫ Czarne",
@@ -78,16 +98,16 @@ else:
     # Metryki na górze strony
     col1, col2, col3 = st.columns(3)
     col1.metric("Gracz", USERNAME)
-    col2.metric("Pobrane partie", len(processed_games))
+    col2.metric("Rozegrane rundy", len(processed_games))
     col3.metric("Zdobyte punkty", f"{total_score} / {len(processed_games)}")
 
     st.markdown("---")
-    st.subheader("📊 Ostatnie partie")
+    st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
     # Tabela z wynikami
     df = pd.DataFrame(processed_games)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-# Automatyczne odświeżanie co 20 sekund
+# Odświeżanie co 20 sekund
 time.sleep(20)
 st.rerun()
