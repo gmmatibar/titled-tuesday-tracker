@@ -1,0 +1,5 @@
+Plaintext
+
+requests
+pandas
+streamlit-autorefresh
