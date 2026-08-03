@@ -97,7 +97,6 @@ else:
         opp_rating = game['black']['rating'] if is_white else game['white']['rating']
         player_result_code = game['white']['result'] if is_white else game['black']['result']
         
-        # Pobieranie Imienia i Nazwiska przeciwnika
         opp_real_name = get_player_name(opponent_username)
         
         score_add, result_text = parse_result(player_result_code)
@@ -121,17 +120,20 @@ else:
     st.markdown("---")
     st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
-    # Tabela z wynikami i precyzyjną szerokością kolumn (w pikselach)
     df = pd.DataFrame(processed_games)
     
+    # Wyłączenie usening_container_width i dokładna konfiguracja kolumn
     st.dataframe(
         df, 
-        use_container_width=True, 
+        use_container_width=False, 
         hide_index=True,
         column_config={
-            "Rd.": st.column_config.NumberColumn(width=60),
-            "Ranking": st.column_config.NumberColumn(width=90),
-            "Kolor": st.column_config.TextColumn(width=70),
+            "Rd.": st.column_config.NumberColumn("Rd.", width=50),
+            "Przeciwnik": st.column_config.TextColumn("Przeciwnik", width=160),
+            "Imię i nazwisko": st.column_config.TextColumn("Imię i nazwisko", width=200),
+            "Ranking": st.column_config.NumberColumn("Ranking", width=80),
+            "Kolor": st.column_config.TextColumn("Kolor", width=60),
+            "Wynik": st.column_config.TextColumn("Wynik", width=120),
         }
     )
 
