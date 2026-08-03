@@ -121,7 +121,7 @@ else:
     st.markdown("---")
     st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
-    # Tabela z wynikami i konfiguracją dopasowania szerokości
+    # Tabela z wynikami i precyzyjną szerokością kolumn (w pikselach)
     df = pd.DataFrame(processed_games)
     
     st.dataframe(
@@ -129,9 +129,9 @@ else:
         use_container_width=True, 
         hide_index=True,
         column_config={
-            "Rd.": st.column_config.Column(width="small"),
-            "Kolor": st.column_config.Column(width="small"),
-            "Ranking": st.column_config.Column(width="small"),
+            "Rd.": st.column_config.NumberColumn(width=60),
+            "Ranking": st.column_config.NumberColumn(width=90),
+            "Kolor": st.column_config.TextColumn(width=70),
         }
     )
 
