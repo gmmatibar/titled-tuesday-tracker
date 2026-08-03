@@ -2,8 +2,8 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
+from datetime import datetime
 
-# Ustawienia strony
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
 
 USERNAME = "Matibar"
@@ -13,16 +13,24 @@ st.caption("Strona odświeża się automatycznie co 20 sekund.")
 
 def get_player_games(username):
     headers = {
-        'User-Agent': 'TitledTuesdayTracker/1.0 (contact: your-email@example.com)'
+        'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'
     }
-    url = f"https://api.chess.com/pub/player/{username}/games"
+    
+    # 1. Pobieramy zakończone partie z obecnego miesiąca
+    now = datetime.now()
+    year = now.strftime("%Y")
+    month = now.strftime("%m")
+    archive_url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month}"
+    
+    games = []
     try:
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            return response.json().get('games', [])
+        res = requests.get(archive_url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            games = res.json().get('games', [])
     except Exception as e:
-        st.error(f"Błąd połączenia: {e}")
-    return []
+        st.error(f"Błąd pobierania archiwum: {e}")
+        
+    return games
 
 def parse_result(result_code):
     win_codes = ['win']
@@ -35,15 +43,18 @@ def parse_result(result_code):
         return 0.0, "🔴 Przegrana"
 
 # Pobieranie danych
-games = get_player_games(USERNAME)
+all_games = get_player_games(USERNAME)
 
-if not games:
-    st.info(f"Brak aktywnych lub niedawno zakończonych gier dla gracza **{USERNAME}**.")
+if not all_games:
+    st.info(f"Brak zarejestrowanych partii dla gracza **{USERNAME}** w tym miesiącu.")
 else:
+    # Bierzemy ostatnie 15 partii
+    recent_games = all_games[-15:]
+    
     processed_games = []
     total_score = 0.0
 
-    for idx, game in enumerate(games, start=1):
+    for idx, game in enumerate(recent_games, start=1):
         white = game['white']['username']
         black = game['black']['username']
         
@@ -56,7 +67,7 @@ else:
         total_score += score_add
 
         processed_games.append({
-            "Runda": idx,
+            "Runda / Gra": idx,
             "Przeciwnik": opponent,
             "Ranking Przeciwnika": opp_rating,
             "Kolor": "⚪ Białe" if is_white else "⚫ Czarne",
@@ -67,16 +78,16 @@ else:
     # Metryki na górze strony
     col1, col2, col3 = st.columns(3)
     col1.metric("Gracz", USERNAME)
-    col2.metric("Rozegrane partie", len(processed_games))
+    col2.metric("Pobrane partie", len(processed_games))
     col3.metric("Zdobyte punkty", f"{total_score} / {len(processed_games)}")
 
     st.markdown("---")
-    st.subheader("📊 Historia partii na żywo")
+    st.subheader("📊 Ostatnie partie")
 
     # Tabela z wynikami
     df = pd.DataFrame(processed_games)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-# Automatyczne odświeżanie co 20 sekund bez zewnętrznych pakietów
+# Automatyczne odświeżanie co 20 sekund
 time.sleep(20)
 st.rerun()
