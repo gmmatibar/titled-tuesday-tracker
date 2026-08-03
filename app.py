@@ -13,7 +13,6 @@ st.title(f"🏆 Titled Tuesday — Live Tracker: {USERNAME}")
 # --- PANEL STEROWANIA TURNIEJEM (W panelu bocznym) ---
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
-# Wyświetlanie aktualnego czasu serwera dla ułatwienia kalibracji
 server_now_utc = datetime.now(timezone.utc)
 server_now_local = datetime.now()
 
@@ -28,18 +27,26 @@ selected_time = st.sidebar.time_input("Godzina rozpoczęcia (czas serwera)", val
 start_round = st.sidebar.number_input("Numer pierwszej rundy", min_value=1, value=1, step=1)
 filter_blitz = st.sidebar.checkbox("Filtruj tylko partie Blitz", value=True)
 
-# Połączenie daty i godziny w jeden znacznik czasu (timestamp)
 start_datetime = datetime.combine(selected_date, selected_time)
 start_timestamp = int(start_datetime.timestamp())
 
 st.caption(f"Śledzenie partii od: **{start_datetime.strftime('%Y-%m-%d %H:%M')}**. Strona odświeża się automatycznie co 20 sekund.")
 
+@st.cache_data(ttl=3600)
+def get_player_name(username):
+    """Pobiera imię i nazwisko gracza z jego profilu na Chess.com"""
+    headers = {'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'}
+    url = f"https://api.chess.com/pub/player/{username}"
+    try:
+        res = requests.get(url, headers=headers, timeout=3)
+        if res.status_code == 200:
+            return res.json().get('name', '—')
+    except Exception:
+        pass
+    return '—'
+
 def get_player_games(username):
-    headers = {
-        'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'
-    }
-    
-    # Pobieranie archiwum dla wybranego miesiąca
+    headers = {'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'}
     year = selected_date.strftime("%Y")
     month = selected_date.strftime("%m")
     archive_url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month}"
@@ -66,15 +73,12 @@ def parse_result(result_code):
 # Pobieranie partii
 all_month_games = get_player_games(USERNAME)
 
-# Filtrowanie partii po czasie rozpoczęcia i typie (blitz)
 filtered_games = []
 for game in all_month_games:
     end_time = game.get('end_time', 0)
     time_class = game.get('time_class', '')
     
-    # Warunek 1: Partia zakończona po wyznaczonej godzinie startu
     if end_time >= start_timestamp:
-        # Warunek 2: Opcjonalne filtrowanie po blitzu
         if not filter_blitz or time_class == 'blitz':
             filtered_games.append(game)
 
@@ -89,20 +93,23 @@ else:
         black = game['black']['username']
         
         is_white = (white.lower() == USERNAME.lower())
-        opponent = black if is_white else white
+        opponent_username = black if is_white else white
         opp_rating = game['black']['rating'] if is_white else game['white']['rating']
         player_result_code = game['white']['result'] if is_white else game['black']['result']
+        
+        # Pobieranie Imienia i Nazwiska przeciwnika
+        opp_real_name = get_player_name(opponent_username)
         
         score_add, result_text = parse_result(player_result_code)
         total_score += score_add
 
         processed_games.append({
-            "Runda": idx,
-            "Przeciwnik": opponent,
-            "Ranking Przeciwnika": opp_rating,
-            "Kolor": "⚪ Białe" if is_white else "⚫ Czarne",
-            "Wynik": result_text,
-            "Suma punktów": total_score
+            "Rd.": idx,
+            "Przeciwnik": opponent_username,
+            "Imię i nazwisko": opp_real_name,
+            "Ranking": opp_rating,
+            "Kolor": "⚪" if is_white else "⚫",
+            "Wynik": result_text
         })
 
     # Metryki na górze strony
@@ -114,9 +121,19 @@ else:
     st.markdown("---")
     st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
-    # Tabela z wynikami
+    # Tabela z wynikami i konfiguracją dopasowania szerokości
     df = pd.DataFrame(processed_games)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    st.dataframe(
+        df, 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={
+            "Rd.": st.column_config.Column(width="small"),
+            "Kolor": st.column_config.Column(width="small"),
+            "Ranking": st.column_config.Column(width="small"),
+        }
+    )
 
     # --- PODSUMOWANIE / WYNIK POD TABELĄ ---
     st.markdown("---")
