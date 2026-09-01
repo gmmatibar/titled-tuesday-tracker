@@ -3,12 +3,8 @@ import requests
 import pandas as pd
 import time
 from datetime import datetime, date, timezone, timedelta
-from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
-
-# Autoodświeżanie co 10 sekund
-st_autorefresh(interval=10000, key="datarefresh")
 
 USERNAME = "matibar"
 
@@ -16,10 +12,72 @@ USERNAME = "matibar"
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
-    html, body, [class*="css"], .stMarkdown {
+    
+    html, body, [class*="css"], .stMarkdown, table {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
-    h3 { color: #D4AF37 !important; }
+
+    div[data-testid="stTable"] table * {
+        color: #D4AF37 !important;
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+        font-size: 13px !important;
+    }
+
+    h3 {
+        color: #D4AF37 !important;
+        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+        font-size: 20px !important;
+    }
+
+    div[data-testid="stTable"] { width: 520px !important; }
+
+    div[data-testid="stTable"] table {
+        background-color: #1A1A1A !important;
+        border-collapse: collapse !important;
+        table-layout: fixed !important;
+        width: 100% !important;
+        border-radius: 6px !important;
+        overflow: hidden !important;
+    }
+
+    div[data-testid="stTable"] td, div[data-testid="stTable"] th {
+        background-color: #1A1A1A !important;
+        border-bottom: 1px solid #282828 !important;
+        padding: 4px 5px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    div[data-testid="stTable"] th {
+        background-color: #141414 !important;
+        border-bottom: 2px solid #333333 !important;
+        text-align: left !important;
+    }
+
+    div[data-testid="stTable"] table th:nth-child(1),
+    div[data-testid="stTable"] table td:nth-child(1) { width: 35px !important; }
+    
+    div[data-testid="stTable"] table th:nth-child(2),
+    div[data-testid="stTable"] table td:nth-child(2) { width: 135px !important; }
+    
+    div[data-testid="stTable"] table th:nth-child(3),
+    div[data-testid="stTable"] table td:nth-child(3) { width: 180px !important; }
+    
+    div[data-testid="stTable"] table th:nth-child(4),
+    div[data-testid="stTable"] table td:nth-child(4) { width: 65px !important; }
+    
+    div[data-testid="stTable"] table th:nth-child(5),
+    div[data-testid="stTable"] table td:nth-child(5) { width: 50px !important; }
+    
+    div[data-testid="stTable"] table th:nth-child(6),
+    div[data-testid="stTable"] table td:nth-child(6) { width: 55px !important; }
+
+    div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
+    div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5),
+    div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
+        text-align: center !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -38,16 +96,16 @@ start_datetime = datetime.combine(selected_date, selected_time).replace(tzinfo=t
 start_timestamp = int(start_datetime.timestamp())
 
 def fetch_games_force_fresh(username, target_date):
-    """Pobiera partie z wymuszeniem braku pamięci podręcznej (Cache Busting)"""
+    """Pobiera gry omijając pamięć podręczną (Cache-Busting)"""
     year_str = target_date.strftime("%Y")
     month_str = target_date.strftime("%m")
     
-    # Dodanie unikalnego timestampu na końcu URL, by ominąć cache Chess.com
+    # Dodanie zmiennej cb uniemożliwia zwrócenie zbuforowanej odpowiedzi
     cache_buster = int(time.time())
     url = f"https://api.chess.com/pub/player/{username}/games/{year_str}/{month_str}?cb={cache_buster}"
     
     headers = {
-        'User-Agent': 'TitledTuesdayTracker/1.0 (contact: user@example.com)',
+        'User-Agent': 'TitledTuesdayTracker/1.0 (contact: test@example.com)',
         'Cache-Control': 'no-cache'
     }
     
@@ -55,8 +113,8 @@ def fetch_games_force_fresh(username, target_date):
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             return res.json().get('games', [])
-    except Exception as e:
-        st.sidebar.error(f"Błąd sieci: {e}")
+    except Exception:
+        pass
     return []
 
 def parse_result(result_code):
@@ -69,10 +127,9 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-# Pobieranie świeżych gier
+# Pobieranie partii z uwzględnieniem wybranego dnia
 all_games = fetch_games_force_fresh(USERNAME, selected_date)
 
-# Filtrowanie partii od wybranego timestampu
 filtered_games = []
 for game in all_games:
     end_time = game.get('end_time', 0)
@@ -118,11 +175,14 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# Wyświetlanie wyników
+# Wyświetlanie tabeli
 st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
 df = pd.DataFrame(processed_games)
-st.dataframe(df, use_container_width=False, height=420)
+st.table(df)
 
-# Panel diagnostyczny (pomoże od razu zauważyć problem)
-st.caption(f"Status: Ostatnia aktualizacja o **{datetime.now().strftime('%H:%M:%S')}**. Znaleziono **{played_games_count}** partii po godzinie {selected_time.strftime('%H:%M')} UTC.")
+st.caption(f"🕒 Ostatnia aktualizacja: **{datetime.now().strftime('%H:%M:%S')}** | Znaleziono partii: **{played_games_count}**")
+
+# Automatyczne bezpieczne pętlowe odświeżanie co 15 sekund
+time.sleep(15)
+st.rerun()
