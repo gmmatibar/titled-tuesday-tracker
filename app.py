@@ -5,7 +5,7 @@ from datetime import datetime, date, timezone
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
 
-USERNAME = "Matibar"
+USERNAME = "matibar"
 
 # --- STYLOWANIE CSS ---
 st.markdown("""
