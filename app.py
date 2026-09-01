@@ -2,7 +2,8 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
-from datetime import datetime, date, timezone
+from datetime import datetime
+import zoneinfo
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
 
@@ -84,42 +85,16 @@ st.markdown("""
 # --- PANEL STEROWANIA ---
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
-server_now_utc = datetime.now(timezone.utc)
-st.sidebar.info(f"🕒 **Czas serwera UTC:** {server_now_utc.strftime('%H:%M:%S')}")
+poland_tz = zoneinfo.ZoneInfo("Europe/Warsaw")
+st.sidebar.info(f"🕒 **Czas PL:** {datetime.now(poland_tz).strftime('%H:%M:%S')}")
 
-selected_date = st.sidebar.date_input("Data turnieju", value=date.today())
-selected_time = st.sidebar.time_input("Godzina rozpoczęcia (UTC)", value=datetime.strptime("17:00", "%H:%M").time())
-start_round = st.sidebar.number_input("Numer pierwszej rundy", min_value=1, value=1, step=1)
-filter_blitz = st.sidebar.checkbox("Filtruj tylko partie Blitz", value=True)
+tournament_input = st.sidebar.text_input(
+    "URL lub ID Turnieju Titled Tuesday", 
+    placeholder="np. titled-tuesday-blitz-1700-123456"
+)
 
-# Obliczanie timestampu początkowego
-start_datetime = datetime.combine(selected_date, selected_time).replace(tzinfo=timezone.utc)
-start_timestamp = int(start_datetime.timestamp())
-
-def fetch_live_games(username, target_date):
-    """Pobiera gry z archiwum miesięcznego z wymuszeniem odświeżenia HTTP"""
-    year_str = target_date.strftime("%Y")
-    month_str = target_date.strftime("%m")
-    
-    # Generowanie unikalnego ciągu dla każdego zapytania, co wymusza brak pamięci podręcznej w CDN Chess.com
-    now_ns = time.time_ns()
-    url = f"https://api.chess.com/pub/player/{username.lower()}/games/{year_str}/{month_str}?nocache={now_ns}"
-    
-    headers = {
-        'User-Agent': f'Mozilla/5.0 (TitledTuesdayTracker/2.0; req_{now_ns})',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-    }
-    
-    try:
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get('games', [])
-    except Exception as e:
-        st.sidebar.error(f"Błąd pobierania: {e}")
-        
-    return []
+# Wyciąganie czystego ID z URL jeśli wklejono cały link
+tournament_id = tournament_input.strip().split("/")[-1] if tournament_input else ""
 
 def parse_result(result_code):
     win_codes = ['win']
@@ -131,32 +106,49 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-# Pobieranie partii
-raw_games = fetch_live_games(USERNAME, selected_date)
+def fetch_tournament_games(tourney_id, username):
+    """Pobiera gry bezpośrednio z drabinki i rund turniejowych Chess.com"""
+    if not tourney_id:
+        return {}
 
-# Filtrowanie partii po czasie i typie
-filtered_games = []
-for game in raw_games:
-    end_time = game.get('end_time', 0)
-    time_class = game.get('time_class', '')
-    
-    if end_time >= start_timestamp:
-        if not filter_blitz or time_class == 'blitz':
-            filtered_games.append(game)
+    req_time = int(time.time() * 1000)
+    headers = {
+        'User-Agent': f'TTTrackerBot/{req_time}',
+        'Cache-Control': 'no-cache'
+    }
 
-# Sortowanie chronologiczne od najwcześniejszej rozegranej w turnieju
-filtered_games.sort(key=lambda x: x.get('end_time', 0))
+    user_games_by_round = {}
 
-# Budowanie tabeli 11 rund
+    # Pętla po 11 rundach turnieju
+    for round_num in range(1, 12):
+        url = f"https://api.chess.com/pub/tournament/{tourney_id}/1/{round_num}?cb={req_time}"
+        try:
+            res = requests.get(url, headers=headers, timeout=3)
+            if res.status_code == 200:
+                games = res.json().get('games', [])
+                for g in games:
+                    white = g.get('white', {}).get('username', '').lower()
+                    black = g.get('black', {}).get('username', '').lower()
+                    
+                    if USERNAME.lower() in [white, black]:
+                        user_games_by_round[round_num] = g
+                        break
+            elif res.status_code == 404:
+                # Runda jeszcze się nie rozpoczęła
+                break
+        except Exception:
+            pass
+            
+    return user_games_by_round
+
+# Pobieranie gier z turnieju
+tournament_games = fetch_tournament_games(tournament_id, USERNAME) if tournament_id else {}
+
+# Budowanie tabeli na 11 rund
 processed_games = []
-played_games_count = len(filtered_games)
-start_rd = int(start_round)
-
-for i in range(11):
-    current_rd = start_rd + i
-    
-    if i < played_games_count:
-        game = filtered_games[i]
+for rd in range(1, 12):
+    if rd in tournament_games:
+        game = tournament_games[rd]
         white = game['white']['username']
         black = game['black']['username']
         
@@ -168,7 +160,7 @@ for i in range(11):
         _, result_text = parse_result(player_result_code)
 
         processed_games.append({
-            "Rd.": current_rd,
+            "Rd.": rd,
             "Przeciwnik": opponent_username,
             "Ranking": str(opp_rating),
             "Kolor": "⚪" if is_white else "⚫",
@@ -176,22 +168,24 @@ for i in range(11):
         })
     else:
         processed_games.append({
-            "Rd.": current_rd,
+            "Rd.": rd,
             "Przeciwnik": "—",
             "Ranking": "—",
             "Kolor": "—",
             "Wynik": "—"
         })
 
-# Wyświetlanie wyników
-st.subheader("📊 Wyniki w Titled Tuesday na żywo")
+# Wyświetlanie tabeli
+st.subheader("📊 Wyniki w Titled Tuesday")
+
+if not tournament_id:
+    st.warning("👈 Wklej link lub ID dzisiejszego turnieju Titled Tuesday w panelu bocznym, aby rozpocząć śledzenie.")
 
 df = pd.DataFrame(processed_games)
 st.table(df)
 
-# Pasek diagnostyczny na dole
-st.caption(f"🔄 Ostatnia zmiana danych: **{datetime.now().strftime('%H:%M:%S')}** | Załadowano partii od godziny {selected_time.strftime('%H:%M')} UTC: **{played_games_count}** z **{len(raw_games)}** ogółem.")
+st.caption(f"🔄 Ostatnia aktualizacja: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Odnaleziono partii turniejowych: **{len(tournament_games)}/11**")
 
-# Odświeżanie co 12 sekund
-time.sleep(12)
+# Odświeżanie co 10 sekund
+time.sleep(10)
 st.rerun()
