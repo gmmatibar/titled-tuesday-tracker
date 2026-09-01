@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, date, timezone
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
 
@@ -85,56 +85,41 @@ st.markdown("""
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
 server_now_utc = datetime.now(timezone.utc)
-st.sidebar.info(f"🕒 **Aktualny czas UTC:** {server_now_utc.strftime('%H:%M:%S')}")
+st.sidebar.info(f"🕒 **Czas serwera UTC:** {server_now_utc.strftime('%H:%M:%S')}")
 
 selected_date = st.sidebar.date_input("Data turnieju", value=date.today())
 selected_time = st.sidebar.time_input("Godzina rozpoczęcia (UTC)", value=datetime.strptime("17:00", "%H:%M").time())
 start_round = st.sidebar.number_input("Numer pierwszej rundy", min_value=1, value=1, step=1)
 filter_blitz = st.sidebar.checkbox("Filtruj tylko partie Blitz", value=True)
 
+# Obliczanie timestampu początkowego
 start_datetime = datetime.combine(selected_date, selected_time).replace(tzinfo=timezone.utc)
 start_timestamp = int(start_datetime.timestamp())
 
-def fetch_all_possible_games(username, target_date):
-    """Pobiera gry z archiwum oraz z endpointu na żywo (ostatnie partie)"""
+def fetch_live_games(username, target_date):
+    """Pobiera gry z archiwum miesięcznego z wymuszeniem odświeżenia HTTP"""
     year_str = target_date.strftime("%Y")
     month_str = target_date.strftime("%m")
-    cache_buster = int(time.time())
+    
+    # Generowanie unikalnego ciągu dla każdego zapytania, co wymusza brak pamięci podręcznej w CDN Chess.com
+    now_ns = time.time_ns()
+    url = f"https://api.chess.com/pub/player/{username.lower()}/games/{year_str}/{month_str}?nocache={now_ns}"
     
     headers = {
-        'User-Agent': 'TitledTuesdayTracker/1.0 (contact: test@example.com)',
-        'Cache-Control': 'no-cache'
+        'User-Agent': f'Mozilla/5.0 (TitledTuesdayTracker/2.0; req_{now_ns})',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
     }
     
-    games = []
-    
-    # 1. Pobieranie z archiwum miesięcznego
-    archive_url = f"https://api.chess.com/pub/player/{username}/games/{year_str}/{month_str}?cb={cache_buster}"
     try:
-        res = requests.get(archive_url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            games.extend(res.json().get('games', []))
-    except Exception:
-        pass
-
-    # 2. Pobieranie z najnowszych partii na żywo (omija opóźnienia archiwum)
-    live_url = f"https://api.chess.com/pub/player/{username}/games?cb={cache_buster}"
-    try:
-        res = requests.get(live_url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            games.extend(res.json().get('games', []))
-    except Exception:
-        pass
-
-    # Usuwanie dubletów na podstawie unikalnego URL partii
-    unique_games = {}
-    for g in games:
-        if 'url' in g:
-            unique_games[g['url']] = g
-            
-    # Sortowanie chronologiczne od najstarszej do najnowszej
-    sorted_games = sorted(unique_games.values(), key=lambda x: x.get('end_time', 0))
-    return sorted_games
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('games', [])
+    except Exception as e:
+        st.sidebar.error(f"Błąd pobierania: {e}")
+        
+    return []
 
 def parse_result(result_code):
     win_codes = ['win']
@@ -146,11 +131,12 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-# Pobieranie połączonych gier
-all_games = fetch_all_possible_games(USERNAME, selected_date)
+# Pobieranie partii
+raw_games = fetch_live_games(USERNAME, selected_date)
 
+# Filtrowanie partii po czasie i typie
 filtered_games = []
-for game in all_games:
+for game in raw_games:
     end_time = game.get('end_time', 0)
     time_class = game.get('time_class', '')
     
@@ -158,7 +144,10 @@ for game in all_games:
         if not filter_blitz or time_class == 'blitz':
             filtered_games.append(game)
 
-# Generowanie tabeli na 11 rund
+# Sortowanie chronologiczne od najwcześniejszej rozegranej w turnieju
+filtered_games.sort(key=lambda x: x.get('end_time', 0))
+
+# Budowanie tabeli 11 rund
 processed_games = []
 played_games_count = len(filtered_games)
 start_rd = int(start_round)
@@ -194,14 +183,15 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# Wyświetlanie tabeli
+# Wyświetlanie wyników
 st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 
 df = pd.DataFrame(processed_games)
 st.table(df)
 
-st.caption(f"🕒 Ostatnia aktualizacja: **{datetime.now().strftime('%H:%M:%S')}** | Załadowano partii: **{played_games_count}**")
+# Pasek diagnostyczny na dole
+st.caption(f"🔄 Ostatnia zmiana danych: **{datetime.now().strftime('%H:%M:%S')}** | Załadowano partii od godziny {selected_time.strftime('%H:%M')} UTC: **{played_games_count}** z **{len(raw_games)}** ogółem.")
 
-# Odświeżanie co 10 sekund
-time.sleep(10)
+# Odświeżanie co 12 sekund
+time.sleep(12)
 st.rerun()
