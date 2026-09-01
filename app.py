@@ -95,27 +95,46 @@ filter_blitz = st.sidebar.checkbox("Filtruj tylko partie Blitz", value=True)
 start_datetime = datetime.combine(selected_date, selected_time).replace(tzinfo=timezone.utc)
 start_timestamp = int(start_datetime.timestamp())
 
-def fetch_games_force_fresh(username, target_date):
-    """Pobiera gry omijając pamięć podręczną (Cache-Busting)"""
+def fetch_all_possible_games(username, target_date):
+    """Pobiera gry z archiwum oraz z endpointu na żywo (ostatnie partie)"""
     year_str = target_date.strftime("%Y")
     month_str = target_date.strftime("%m")
-    
-    # Dodanie zmiennej cb uniemożliwia zwrócenie zbuforowanej odpowiedzi
     cache_buster = int(time.time())
-    url = f"https://api.chess.com/pub/player/{username}/games/{year_str}/{month_str}?cb={cache_buster}"
     
     headers = {
         'User-Agent': 'TitledTuesdayTracker/1.0 (contact: test@example.com)',
         'Cache-Control': 'no-cache'
     }
     
+    games = []
+    
+    # 1. Pobieranie z archiwum miesięcznego
+    archive_url = f"https://api.chess.com/pub/player/{username}/games/{year_str}/{month_str}?cb={cache_buster}"
     try:
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(archive_url, headers=headers, timeout=5)
         if res.status_code == 200:
-            return res.json().get('games', [])
+            games.extend(res.json().get('games', []))
     except Exception:
         pass
-    return []
+
+    # 2. Pobieranie z najnowszych partii na żywo (omija opóźnienia archiwum)
+    live_url = f"https://api.chess.com/pub/player/{username}/games?cb={cache_buster}"
+    try:
+        res = requests.get(live_url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            games.extend(res.json().get('games', []))
+    except Exception:
+        pass
+
+    # Usuwanie dubletów na podstawie unikalnego URL partii
+    unique_games = {}
+    for g in games:
+        if 'url' in g:
+            unique_games[g['url']] = g
+            
+    # Sortowanie chronologiczne od najstarszej do najnowszej
+    sorted_games = sorted(unique_games.values(), key=lambda x: x.get('end_time', 0))
+    return sorted_games
 
 def parse_result(result_code):
     win_codes = ['win']
@@ -127,8 +146,8 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-# Pobieranie partii z uwzględnieniem wybranego dnia
-all_games = fetch_games_force_fresh(USERNAME, selected_date)
+# Pobieranie połączonych gier
+all_games = fetch_all_possible_games(USERNAME, selected_date)
 
 filtered_games = []
 for game in all_games:
@@ -181,8 +200,8 @@ st.subheader("📊 Wyniki w Titled Tuesday na żywo")
 df = pd.DataFrame(processed_games)
 st.table(df)
 
-st.caption(f"🕒 Ostatnia aktualizacja: **{datetime.now().strftime('%H:%M:%S')}** | Znaleziono partii: **{played_games_count}**")
+st.caption(f"🕒 Ostatnia aktualizacja: **{datetime.now().strftime('%H:%M:%S')}** | Załadowano partii: **{played_games_count}**")
 
-# Automatyczne bezpieczne pętlowe odświeżanie co 15 sekund
-time.sleep(15)
+# Odświeżanie co 10 sekund
+time.sleep(10)
 st.rerun()
