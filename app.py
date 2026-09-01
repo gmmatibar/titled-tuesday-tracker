@@ -4,6 +4,7 @@ import pandas as pd
 import time
 from datetime import datetime
 import zoneinfo
+import re
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
 
@@ -90,11 +91,8 @@ st.sidebar.info(f"🕒 **Czas PL:** {datetime.now(poland_tz).strftime('%H:%M:%S'
 
 tournament_input = st.sidebar.text_input(
     "URL lub ID Turnieju Titled Tuesday", 
-    placeholder="np. titled-tuesday-blitz-1700-123456"
+    value="https://www.chess.com/play/tournament/31074565"
 )
-
-# Wyciąganie czystego ID z URL jeśli wklejono cały link
-tournament_id = tournament_input.strip().split("/")[-1] if tournament_input else ""
 
 def parse_result(result_code):
     win_codes = ['win']
@@ -106,10 +104,20 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-def fetch_tournament_games(tourney_id, username):
-    """Pobiera gry bezpośrednio z drabinki i rund turniejowych Chess.com"""
+def extract_tournament_id(raw_input):
+    """Wyciąga numeryczny lub tekstowy identyfikator turnieju ze ścieżki URL"""
+    if not raw_input:
+        return ""
+    # Szukamy ciągu cyfr lub nazwy po ostatnim slaszu
+    match = re.search(r'(?:tournament/|/)([\w-]+)/?$', raw_input.strip())
+    if match:
+        return match.group(1)
+    return raw_input.strip()
+
+def fetch_games_by_tournament(raw_url, username):
+    tourney_id = extract_tournament_id(raw_url)
     if not tourney_id:
-        return {}
+        return []
 
     req_time = int(time.time() * 1000)
     headers = {
@@ -117,38 +125,52 @@ def fetch_tournament_games(tourney_id, username):
         'Cache-Control': 'no-cache'
     }
 
-    user_games_by_round = {}
-
-    # Pętla po 11 rundach turnieju
+    # 1. Próba pobrania jako turniej po ID z wewn. API Chess.com
+    games = []
+    
+    # Odpytujemy do 11 rund
     for round_num in range(1, 12):
         url = f"https://api.chess.com/pub/tournament/{tourney_id}/1/{round_num}?cb={req_time}"
-        try:
-            res = requests.get(url, headers=headers, timeout=3)
-            if res.status_code == 200:
-                games = res.json().get('games', [])
-                for g in games:
-                    white = g.get('white', {}).get('username', '').lower()
-                    black = g.get('black', {}).get('username', '').lower()
-                    
-                    if USERNAME.lower() in [white, black]:
-                        user_games_by_round[round_num] = g
-                        break
-            elif res.status_code == 404:
-                # Runda jeszcze się nie rozpoczęła
-                break
-        except Exception:
-            pass
-            
-    return user_games_by_round
+        res = requests.get(url, headers=headers, timeout=3)
+        if res.status_code == 200:
+            round_games = res.json().get('games', [])
+            for g in round_games:
+                w = g.get('white', {}).get('username', '').lower()
+                b = g.get('black', {}).get('username', '').lower()
+                if username.lower() in [w, b]:
+                    games.append(g)
+                    break
+        else:
+            # Jeśli endpoint zwróci 404, próbujemy alternatywne archiwum miesięczne przefiltrowane pod ten turniej
+            break
 
-# Pobieranie gier z turnieju
-tournament_games = fetch_tournament_games(tournament_id, USERNAME) if tournament_id else {}
+    # 2. Jeśli API turniejowe zwróciło pusto (częste dla gier w trakcie trwania na żywo):
+    if not games:
+        now = datetime.now(poland_tz)
+        url_archive = f"https://api.chess.com/pub/player/{username.lower()}/games/{now.strftime('%Y')}/{now.strftime('%m')}?cb={req_time}"
+        res = requests.get(url_archive, headers=headers, timeout=5)
+        if res.status_code == 200:
+            month_games = res.json().get('games', [])
+            # Filtrujemy partie po URL turnieju lub ID z nagłówka PGN
+            for g in month_games:
+                pgn = g.get('pgn', '')
+                tourney_url_in_g = g.get('tournament', '')
+                if tourney_id in pgn or tourney_id in tourney_url_in_g:
+                    games.append(g)
+
+    return games
+
+# Pobranie partii
+games = fetch_games_by_tournament(tournament_input, USERNAME)
+games.sort(key=lambda x: x.get('end_time', 0))
 
 # Budowanie tabeli na 11 rund
 processed_games = []
+played_count = len(games)
+
 for rd in range(1, 12):
-    if rd in tournament_games:
-        game = tournament_games[rd]
+    if (rd - 1) < played_count:
+        game = games[rd - 1]
         white = game['white']['username']
         black = game['black']['username']
         
@@ -178,13 +200,10 @@ for rd in range(1, 12):
 # Wyświetlanie tabeli
 st.subheader("📊 Wyniki w Titled Tuesday")
 
-if not tournament_id:
-    st.warning("👈 Wklej link lub ID dzisiejszego turnieju Titled Tuesday w panelu bocznym, aby rozpocząć śledzenie.")
-
 df = pd.DataFrame(processed_games)
 st.table(df)
 
-st.caption(f"🔄 Ostatnia aktualizacja: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Odnaleziono partii turniejowych: **{len(tournament_games)}/11**")
+st.caption(f"🔄 Ostatnia aktualizacja: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Zidentyfikowano partii: **{played_count}/11**")
 
 # Odświeżanie co 10 sekund
 time.sleep(10)
