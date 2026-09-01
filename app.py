@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import pandas as pd
-import time
 from datetime import datetime, date, timezone
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
@@ -13,30 +12,20 @@ st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
     
-    /* Czcionka Comic Sans dla całej aplikacji */
     html, body, [class*="css"], .stMarkdown, table {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
-
-    /* Złoty kolor i mniejsza czcionka dla tabeli */
     div[data-testid="stTable"] table * {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
         font-size: 13px !important;
     }
-
-    /* Tytuł nagłówka H3 */
     h3 {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
         font-size: 20px !important;
     }
-
-    /* Kontener tabeli – rozszerzony do 520px, aby zmieścić pełne nazwy */
-    div[data-testid="stTable"] {
-        width: 520px !important;
-    }
-
+    div[data-testid="stTable"] { width: 520px !important; }
     div[data-testid="stTable"] table {
         background-color: #1A1A1A !important;
         border-collapse: collapse !important;
@@ -45,8 +34,6 @@ st.markdown("""
         border-radius: 6px !important;
         overflow: hidden !important;
     }
-
-    /* Kompaktowe marginesy i obcinanie tekstu (z wielokropkiem) */
     div[data-testid="stTable"] td, div[data-testid="stTable"] th {
         background-color: #1A1A1A !important;
         border-bottom: 1px solid #282828 !important;
@@ -55,39 +42,18 @@ st.markdown("""
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
-
     div[data-testid="stTable"] th {
         background-color: #141414 !important;
         border-bottom: 2px solid #333333 !important;
         text-align: left !important;
     }
+    div[data-testid="stTable"] table th:nth-child(1), div[data-testid="stTable"] table td:nth-child(1) { width: 35px !important; }
+    div[data-testid="stTable"] table th:nth-child(2), div[data-testid="stTable"] table td:nth-child(2) { width: 135px !important; }
+    div[data-testid="stTable"] table th:nth-child(3), div[data-testid="stTable"] table td:nth-child(3) { width: 180px !important; }
+    div[data-testid="stTable"] table th:nth-child(4), div[data-testid="stTable"] table td:nth-child(4) { width: 65px !important; }
+    div[data-testid="stTable"] table th:nth-child(5), div[data-testid="stTable"] table td:nth-child(5) { width: 50px !important; }
+    div[data-testid="stTable"] table th:nth-child(6), div[data-testid="stTable"] table td:nth-child(6) { width: 55px !important; }
 
-    /* --- SZTYWNE DEDYKOWANE SZEROKOŚCI KOLUMN --- */
-    /* 1. Rd. -> Dopisany na sztywno pod szerokość nagłówka */
-    div[data-testid="stTable"] table th:nth-child(1),
-    div[data-testid="stTable"] table td:nth-child(1) { width: 35px !important; }
-    
-    /* 2. Przeciwnik -> ROZSZERZONY (135px na nicki) */
-    div[data-testid="stTable"] table th:nth-child(2),
-    div[data-testid="stTable"] table td:nth-child(2) { width: 135px !important; }
-    
-    /* 3. Imię i nazwisko -> ROZSZERZONY (180px na pełne imiona i nazwiska) */
-    div[data-testid="stTable"] table th:nth-child(3),
-    div[data-testid="stTable"] table td:nth-child(3) { width: 180px !important; }
-    
-    /* 4. Ranking -> Dopisany na sztywno pod szerokość nagłówka */
-    div[data-testid="stTable"] table th:nth-child(4),
-    div[data-testid="stTable"] table td:nth-child(4) { width: 65px !important; }
-    
-    /* 5. Kolor -> Dopisany na sztywno pod szerokość nagłówka */
-    div[data-testid="stTable"] table th:nth-child(5),
-    div[data-testid="stTable"] table td:nth-child(5) { width: 50px !important; }
-    
-    /* 6. Wynik -> Dopisany na sztywno pod szerokość nagłówka */
-    div[data-testid="stTable"] table th:nth-child(6),
-    div[data-testid="stTable"] table td:nth-child(6) { width: 55px !important; }
-
-    /* Wyśrodkowanie wybranej zawartości */
     div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
     div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5),
     div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
@@ -96,30 +62,24 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- PANEL STEROWANIA TURNIEJEM (W panelu bocznym) ---
+# --- PANEL STEROWANIA ---
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
 server_now_utc = datetime.now(timezone.utc)
-server_now_local = datetime.now()
-
-st.sidebar.info(
-    f"🕒 **Czas serwera:**\n\n"
-    f"• **UTC:** {server_now_utc.strftime('%H:%M:%S')}\n"
-    f"• **Lokalny serwera:** {server_now_local.strftime('%H:%M:%S')}"
-)
+st.sidebar.info(f"🕒 **Aktualny czas UTC:** {server_now_utc.strftime('%H:%M:%S')}")
 
 selected_date = st.sidebar.date_input("Data turnieju", value=date.today())
-selected_time = st.sidebar.time_input("Godzina rozpoczęcia (czas serwera)", value=datetime.strptime("17:00", "%H:%M").time())
+selected_time = st.sidebar.time_input("Godzina rozpoczęcia (UTC)", value=datetime.strptime("17:00", "%H:%M").time())
 start_round = st.sidebar.number_input("Numer pierwszej rundy", min_value=1, value=1, step=1)
 filter_blitz = st.sidebar.checkbox("Filtruj tylko partie Blitz", value=True)
 
-start_datetime = datetime.combine(selected_date, selected_time)
+# POPRAWKA 1: Jawną deklaracja strefy UTC dla start_datetime
+start_datetime = datetime.combine(selected_date, selected_time).replace(tzinfo=timezone.utc)
 start_timestamp = int(start_datetime.timestamp())
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=86400)
 def get_player_name(username):
-    """Pobiera imię i nazwisko gracza z jego profilu na Chess.com"""
-    headers = {'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'}
+    headers = {'User-Agent': 'TitledTuesdayTracker/1.0 (contact: email@example.com)'}
     url = f"https://api.chess.com/pub/player/{username}"
     try:
         res = requests.get(url, headers=headers, timeout=3)
@@ -129,19 +89,16 @@ def get_player_name(username):
         pass
     return '—'
 
-def get_player_games(username):
-    headers = {'User-Agent': 'TitledTuesdayTracker/1.0 (contact: contact@example.com)'}
-    year = selected_date.strftime("%Y")
-    month = selected_date.strftime("%m")
+@st.cache_data(ttl=15)
+def get_player_games(username, year, month):
+    headers = {'User-Agent': 'TitledTuesdayTracker/1.0 (contact: email@example.com)'}
     archive_url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month}"
-    
     try:
         res = requests.get(archive_url, headers=headers, timeout=5)
         if res.status_code == 200:
             return res.json().get('games', [])
     except Exception as e:
         st.error(f"Błąd pobierania danych z Chess.com: {e}")
-        
     return []
 
 def parse_result(result_code):
@@ -154,8 +111,10 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-# Pobieranie partii
-all_month_games = get_player_games(USERNAME)
+# Pobieranie partii z krótkim ttl w cache
+year_str = selected_date.strftime("%Y")
+month_str = selected_date.strftime("%m")
+all_month_games = get_player_games(USERNAME, year_str, month_str)
 
 filtered_games = []
 for game in all_month_games:
@@ -166,11 +125,9 @@ for game in all_month_games:
         if not filter_blitz or time_class == 'blitz':
             filtered_games.append(game)
 
-# Generowanie tabeli na stałe 11 rund
 processed_games = []
 total_score = 0.0
 played_games_count = len(filtered_games)
-
 start_rd = int(start_round)
 
 for i in range(11):
@@ -208,12 +165,6 @@ for i in range(11):
             "Wynik": "—"
         })
 
-# Tabela z wynikami
 st.subheader("📊 Wyniki w Titled Tuesday na żywo")
-
 df = pd.DataFrame(processed_games)
 st.table(df)
-
-# Odświeżanie co 20 sekund
-time.sleep(20)
-st.rerun()
