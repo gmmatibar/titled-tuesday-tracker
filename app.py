@@ -2,9 +2,8 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
-from datetime import datetime
+from datetime import datetime, date
 import zoneinfo
-import re
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
 
@@ -89,10 +88,7 @@ st.sidebar.header("⚙️ Ustawienia Turnieju")
 poland_tz = zoneinfo.ZoneInfo("Europe/Warsaw")
 st.sidebar.info(f"🕒 **Czas PL:** {datetime.now(poland_tz).strftime('%H:%M:%S')}")
 
-tournament_input = st.sidebar.text_input(
-    "URL lub ID Turnieju Titled Tuesday", 
-    value="https://www.chess.com/play/tournament/31074565"
-)
+selected_date = st.sidebar.date_input("Data turnieju", value=date.today())
 
 def parse_result(result_code):
     win_codes = ['win']
@@ -104,73 +100,72 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-def extract_tournament_id(raw_input):
-    """Wyciąga numeryczny lub tekstowy identyfikator turnieju ze ścieżki URL"""
-    if not raw_input:
-        return ""
-    # Szukamy ciągu cyfr lub nazwy po ostatnim slaszu
-    match = re.search(r'(?:tournament/|/)([\w-]+)/?$', raw_input.strip())
-    if match:
-        return match.group(1)
-    return raw_input.strip()
-
-def fetch_games_by_tournament(raw_url, username):
-    tourney_id = extract_tournament_id(raw_url)
-    if not tourney_id:
-        return []
-
+def fetch_all_possible_sources(username, target_date):
+    """Pobiera partie jednocześnie ze wszystkich znanych źródeł API Chess.com"""
     req_time = int(time.time() * 1000)
     headers = {
-        'User-Agent': f'TTTrackerBot/{req_time}',
-        'Cache-Control': 'no-cache'
+        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrackerBot/{req_time}',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
     }
 
-    # 1. Próba pobrania jako turniej po ID z wewn. API Chess.com
-    games = []
+    found_games = {}
+
+    # Zapytanie 1: Archwiu miesięczne z bypassem cache
+    year_str = target_date.strftime("%Y")
+    month_str = target_date.strftime("%m")
+    url_month = f"https://api.chess.com/pub/player/{username.lower()}/games/{year_str}/{month_str}?cb={req_time}"
     
-    # Odpytujemy do 11 rund
-    for round_num in range(1, 12):
-        url = f"https://api.chess.com/pub/tournament/{tourney_id}/1/{round_num}?cb={req_time}"
-        res = requests.get(url, headers=headers, timeout=3)
-        if res.status_code == 200:
-            round_games = res.json().get('games', [])
-            for g in round_games:
-                w = g.get('white', {}).get('username', '').lower()
-                b = g.get('black', {}).get('username', '').lower()
-                if username.lower() in [w, b]:
-                    games.append(g)
-                    break
-        else:
-            # Jeśli endpoint zwróci 404, próbujemy alternatywne archiwum miesięczne przefiltrowane pod ten turniej
-            break
+    try:
+        r1 = requests.get(url_month, headers=headers, timeout=5)
+        if r1.status_code == 200:
+            for g in r1.json().get('games', []):
+                if 'url' in g:
+                    found_games[g['url']] = g
+    except Exception:
+        pass
 
-    # 2. Jeśli API turniejowe zwróciło pusto (częste dla gier w trakcie trwania na żywo):
-    if not games:
-        now = datetime.now(poland_tz)
-        url_archive = f"https://api.chess.com/pub/player/{username.lower()}/games/{now.strftime('%Y')}/{now.strftime('%m')}?cb={req_time}"
-        res = requests.get(url_archive, headers=headers, timeout=5)
-        if res.status_code == 200:
-            month_games = res.json().get('games', [])
-            # Filtrujemy partie po URL turnieju lub ID z nagłówka PGN
-            for g in month_games:
-                pgn = g.get('pgn', '')
-                tourney_url_in_g = g.get('tournament', '')
-                if tourney_id in pgn or tourney_id in tourney_url_in_g:
-                    games.append(g)
+    # Zapytanie 2: Endpoint gier w trakcie i bezpośrednio zakończonych
+    url_live = f"https://api.chess.com/pub/player/{username.lower()}/games?cb={req_time}"
+    try:
+        r2 = requests.get(url_live, headers=headers, timeout=5)
+        if r2.status_code == 200:
+            for g in r2.json().get('games', []):
+                if 'url' in g:
+                    found_games[g['url']] = g
+    except Exception:
+        pass
 
-    return games
+    # Przefiltrowanie gier wyłącznie z wybranego dnia (typ blitz)
+    today_blitz = []
+    for g in found_games.values():
+        end_ts = g.get('end_time', 0)
+        g_date_pl = datetime.fromtimestamp(end_ts, tz=poland_tz).date()
+        
+        if g_date_pl == target_date and g.get('time_class') == 'blitz':
+            today_blitz.append(g)
 
-# Pobranie partii
-games = fetch_games_by_tournament(tournament_input, USERNAME)
-games.sort(key=lambda x: x.get('end_time', 0))
+    # Sortowanie chronologiczne od 1 rundy do ostatniej
+    today_blitz.sort(key=lambda x: x.get('end_time', 0))
+    return today_blitz
+
+# Pobieranie gier
+games = fetch_all_possible_sources(USERNAME, selected_date)
+
+# Jeśli partii jest więcej niż 11 (np. zagrałeś dzisiaj też inne partie blitz przed turniejem),
+# bierzemy OSTATNIE rozegrane partie z dzisiejszego dnia
+if len(games) > 11:
+    tournament_games = games[-11:]
+else:
+    tournament_games = games
+
+played_count = len(tournament_games)
 
 # Budowanie tabeli na 11 rund
 processed_games = []
-played_count = len(games)
-
 for rd in range(1, 12):
     if (rd - 1) < played_count:
-        game = games[rd - 1]
+        game = tournament_games[rd - 1]
         white = game['white']['username']
         black = game['black']['username']
         
@@ -203,8 +198,8 @@ st.subheader("📊 Wyniki w Titled Tuesday")
 df = pd.DataFrame(processed_games)
 st.table(df)
 
-st.caption(f"🔄 Ostatnia aktualizacja: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Zidentyfikowano partii: **{played_count}/11**")
+st.caption(f"🔄 Czas serwera: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Wykryto dzisiejszych partii: **{played_count}**")
 
-# Odświeżanie co 10 sekund
-time.sleep(10)
+# Odświeżanie co 5 sekund
+time.sleep(5)
 st.rerun()
