@@ -14,29 +14,23 @@ st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
     
-    /* Pełna przezroczystość tła Streamlit */
     html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stMain"] {
         background-color: transparent !important;
         background: transparent !important;
     }
-
     html, body, [class*="css"], .stMarkdown, table {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
     }
-
     h3 {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
         font-size: 20px !important;
         text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9) !important;
     }
-
-    /* Przezroczystość dla tabeli */
     div[data-testid="stTable"] {
         width: 520px !important;
         background-color: transparent !important;
     }
-
     div[data-testid="stTable"] table {
         background-color: transparent !important;
         border-collapse: collapse !important;
@@ -45,7 +39,6 @@ st.markdown("""
         border-radius: 6px !important;
         overflow: hidden !important;
     }
-
     div[data-testid="stTable"] td, div[data-testid="stTable"] th {
         background-color: transparent !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
@@ -56,14 +49,11 @@ st.markdown("""
         color: #D4AF37 !important;
         text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9) !important;
     }
-
     div[data-testid="stTable"] th {
-        background-color: rgba(0, 0, 0, 0.4) !important; /* Lekkie przyciemnienie nagłówka dla czytelności */
+        background-color: rgba(0, 0, 0, 0.4) !important; 
         border-bottom: 2px solid #D4AF37 !important;
         text-align: left !important;
     }
-
-    /* Szerokości kolumn */
     div[data-testid="stTable"] table th:nth-child(1),
     div[data-testid="stTable"] table td:nth-child(1) { width: 35px !important; }
     
@@ -81,13 +71,11 @@ st.markdown("""
     
     div[data-testid="stTable"] table th:nth-child(6),
     div[data-testid="stTable"] table td:nth-child(6) { width: 55px !important; }
-
     div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
     div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5),
     div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
         text-align: center !important;
     }
-
     .stCaption {
         color: #E0E0E0 !important;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9) !important;
@@ -102,16 +90,22 @@ poland_tz = zoneinfo.ZoneInfo("Europe/Warsaw")
 now_pl = datetime.now(poland_tz)
 st.sidebar.info(f"🕒 **Czas PL:** {now_pl.strftime('%H:%M:%S')}")
 
-selected_date = st.sidebar.date_input("Data turnieju", value=date.today())
-selected_time = st.sidebar.time_input("Godzina rozpoczęcia", value=dtime(17, 0))
+selected_date = st.sidebar.date_input("Data turnieju", value=now_pl.date())
+
+# Automatyczna godzina (we wtorki domyślnie 17:00, w pozostałe dni 00:00)
+is_tuesday = now_pl.weekday() == 1
+default_time = dtime(17, 0) if is_tuesday else dtime(0, 0)
+selected_time = st.sidebar.time_input("Godzina rozpoczęcia", value=default_time)
 
 selection_mode = st.sidebar.radio(
-    "Wybiór partii do tabeli:",
+    "Wybór partii do tabeli:",
     ["Pierwsze 11 od godziny startu", "Ostatnie 11 rozegranych"],
     index=0
 )
 
-# Punkt odcięcia czasowego w strefie czasowej Polski
+debug_mode = st.sidebar.checkbox("🐞 Tryb debugowania (pokaż dane)", value=False)
+
+# Punkt odcięcia
 start_cutoff_dt = datetime.combine(selected_date, selected_time).replace(tzinfo=poland_tz)
 
 def parse_result(result_code):
@@ -124,9 +118,9 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-def fetch_games_for_month(username, year, month, headers):
-    """Pobiera archiwum gier z danego miesiąca z obsługą błędów 404"""
-    url = f"https://api.chess.com/pub/player/{username.lower()}/games/{year:04d}/{month:02d}"
+def fetch_games_for_month(username, year, month, headers, req_time):
+    # Dodałem z powrotem ?cb= aby omijać cache na serwerach Chess.com
+    url = f"https://api.chess.com/pub/player/{username.lower()}/games/{year:04d}/{month:02d}?cb={req_time}"
     try:
         r = requests.get(url, headers=headers, timeout=5)
         if r.status_code == 200:
@@ -136,40 +130,32 @@ def fetch_games_for_month(username, year, month, headers):
     return []
 
 def fetch_all_possible_sources(username, start_dt):
-    """Pobiera partie z obecnego i poprzedniego miesiąca oraz z live endpointu"""
+    req_time = int(time.time() * 1000)
+    
+    # Agresywne nagłówki blokujące zapisywanie w pamięci podręcznej (cache)
     headers = {
-        'User-Agent': f'ChessTournamentTracker/2.0 (user: {username})',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
+        'User-Agent': f'ChessTournamentTracker/3.0 (user: {username}) ts={req_time}',
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0'
     }
 
     found_games = {}
 
-    # 1. Pobierz gry z obecnego miesiąca wyznaczonej daty
-    g1 = fetch_games_for_month(username, start_dt.year, start_dt.month, headers)
+    # 1. Obecny miesiąc
+    g1 = fetch_games_for_month(username, start_dt.year, start_dt.month, headers, req_time)
     for g in g1:
         if 'url' in g:
             found_games[g['url']] = g
 
-    # 2. Pobierz gry z poprzedniego miesiąca (na wypadek przełomu miesięcy/stref czasowych)
+    # 2. Poprzedni miesiąc (zabezpieczenie stref czasowych)
     prev_month_date = start_dt - timedelta(days=15)
-    g2 = fetch_games_for_month(username, prev_month_date.year, prev_month_date.month, headers)
+    g2 = fetch_games_for_month(username, prev_month_date.year, prev_month_date.month, headers, req_time)
     for g in g2:
         if 'url' in g:
             found_games[g['url']] = g
 
-    # 3. Endpoint z najnowszymi/aktywnymi grami
-    url_live = f"https://api.chess.com/pub/player/{username.lower()}/games"
-    try:
-        r_live = requests.get(url_live, headers=headers, timeout=5)
-        if r_live.status_code == 200:
-            for g in r_live.json().get('games', []):
-                if 'url' in g:
-                    found_games[g['url']] = g
-    except Exception:
-        pass
-
-    # Przefiltruj partie: wyłącznie blitz/bullet/rapid zakończone PO ustalonej godzinie rozpoczęcia
+    # Filtracja po dacie/czasie (odrzucamy partie zakończone przed ustaloną godziną)
     cutoff_ts = start_dt.timestamp()
     valid_games = []
 
@@ -178,14 +164,25 @@ def fetch_all_possible_sources(username, start_dt):
         if end_ts >= cutoff_ts:
             valid_games.append(g)
 
-    # Sortowanie chronologiczne
+    # Sortowanie od najstarszej do najnowszej
     valid_games.sort(key=lambda x: x.get('end_time', 0))
-    return valid_games
+    return valid_games, found_games
 
-# Pobranie przefiltrowanych partii
-games = fetch_all_possible_sources(USERNAME, start_cutoff_dt)
+# Pobieranie gier
+games, all_raw_games = fetch_all_possible_sources(USERNAME, start_cutoff_dt)
 
-# Wybór 11 partii zależnie od ustawienia w Sidebarze
+# Wyświetlanie danych dla trybu debugowania
+if debug_mode:
+    st.info(f"**🐞 Tryb debugowania**\nGodzina odcięcia (Unix timestamp): {start_cutoff_dt.timestamp()}")
+    all_sorted = sorted(all_raw_games.values(), key=lambda x: x.get('end_time', 0))
+    if all_sorted:
+        last_raw_game = all_sorted[-1]
+        last_time_pl = datetime.fromtimestamp(last_raw_game['end_time'], tz=poland_tz)
+        st.warning(f"Najnowsza gra pobrana z API Chess.com zakończyła się: **{last_time_pl.strftime('%Y-%m-%d %H:%M:%S')}**. Została rozegrana z przeciwnikiem: **{last_raw_game.get('black', {}).get('username') if last_raw_game.get('white', {}).get('username').lower() == USERNAME.lower() else last_raw_game.get('white', {}).get('username')}**.")
+    else:
+        st.error("API Chess.com aktualnie nie zwraca ŻADNYCH gier w tym i poprzednim miesiącu (błąd API).")
+
+# Wybór 11 partii zależnie od opcji
 if selection_mode == "Pierwsze 11 od godziny startu":
     tournament_games = games[:11]
 else:
@@ -193,7 +190,7 @@ else:
 
 played_count = len(tournament_games)
 
-# Budowanie tabeli na 11 rund
+# Budowa struktury tabeli
 processed_games = []
 for rd in range(1, 12):
     if (rd - 1) < played_count:
@@ -224,7 +221,7 @@ for rd in range(1, 12):
             "Wynik": "—"
         })
 
-# Wyświetlanie tabeli
+# Wyświetlanie
 st.subheader("📊 Wyniki Turnieju")
 
 df = pd.DataFrame(processed_games)
@@ -232,6 +229,6 @@ st.table(df)
 
 st.caption(f"🔄 Czas serwera: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Zarejestrowanych partii: **{played_count}**")
 
-# Automatyczne odświeżanie co 5 sekund
+# Ważne: co 5 sekund to bardzo szybko, jeśli problem z banem IP od Chess.com by się pojawił, zmień to na 10
 time.sleep(5)
 st.rerun()
