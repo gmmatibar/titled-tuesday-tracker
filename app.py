@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
-from datetime import datetime, date, time as dtime, timedelta
+from datetime import datetime, date, time as dtime
 import zoneinfo
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
@@ -71,6 +71,7 @@ st.markdown("""
     
     div[data-testid="stTable"] table th:nth-child(6),
     div[data-testid="stTable"] table td:nth-child(6) { width: 55px !important; }
+    
     div[data-testid="stTable"] td:nth-child(1), div[data-testid="stTable"] th:nth-child(1),
     div[data-testid="stTable"] td:nth-child(5), div[data-testid="stTable"] th:nth-child(5),
     div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
@@ -92,7 +93,7 @@ st.sidebar.info(f"🕒 **Czas PL:** {now_pl.strftime('%H:%M:%S')}")
 
 selected_date = st.sidebar.date_input("Data turnieju", value=now_pl.date())
 
-# Automatyczna godzina (we wtorki domyślnie 17:00, w pozostałe dni 00:00)
+# We wtorki domyślnie 17:00, w pozostałe dni 00:00 (łapie wszystkie partie od północy)
 is_tuesday = now_pl.weekday() == 1
 default_time = dtime(17, 0) if is_tuesday else dtime(0, 0)
 selected_time = st.sidebar.time_input("Godzina rozpoczęcia", value=default_time)
@@ -103,9 +104,9 @@ selection_mode = st.sidebar.radio(
     index=0
 )
 
-debug_mode = st.sidebar.checkbox("🐞 Tryb debugowania (pokaż dane)", value=False)
+debug_mode = st.sidebar.checkbox("🐞 Tryb debugowania (szczegóły)", value=False)
 
-# Punkt odcięcia
+# Punkt odcięcia czasowego
 start_cutoff_dt = datetime.combine(selected_date, selected_time).replace(tzinfo=poland_tz)
 
 def parse_result(result_code):
@@ -118,71 +119,87 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-def fetch_games_for_month(username, year, month, headers, req_time):
-    # Dodałem z powrotem ?cb= aby omijać cache na serwerach Chess.com
-    url = f"https://api.chess.com/pub/player/{username.lower()}/games/{year:04d}/{month:02d}?cb={req_time}"
-    try:
-        r = requests.get(url, headers=headers, timeout=5)
-        if r.status_code == 200:
-            return r.json().get('games', [])
-    except Exception:
-        pass
-    return []
-
-def fetch_all_possible_sources(username, start_dt):
+def fetch_all_possible_sources(username, target_date, cutoff_ts):
     req_time = int(time.time() * 1000)
     
-    # Agresywne nagłówki blokujące zapisywanie w pamięci podręcznej (cache)
+    # Nagłówki z pierwszego kodu (sprawdzone omijanie cache)
     headers = {
-        'User-Agent': f'ChessTournamentTracker/3.0 (user: {username}) ts={req_time}',
-        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0'
+        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrackerBot/{req_time}',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
     }
 
     found_games = {}
 
-    # 1. Obecny miesiąc
-    g1 = fetch_games_for_month(username, start_dt.year, start_dt.month, headers, req_time)
-    for g in g1:
-        if 'url' in g:
-            found_games[g['url']] = g
+    # 1. ARCHIWUM MIESIĘCZNE (dla wybranej daty)
+    url_month = f"https://api.chess.com/pub/player/{username.lower()}/games/{target_date.year:04d}/{target_date.month:02d}?cb={req_time}"
+    try:
+        r1 = requests.get(url_month, headers=headers, timeout=5)
+        if r1.status_code == 200:
+            for g in r1.json().get('games', []):
+                if 'url' in g:
+                    found_games[g['url']] = g
+    except Exception:
+        pass
 
-    # 2. Poprzedni miesiąc (zabezpieczenie stref czasowych)
-    prev_month_date = start_dt - timedelta(days=15)
-    g2 = fetch_games_for_month(username, prev_month_date.year, prev_month_date.month, headers, req_time)
-    for g in g2:
-        if 'url' in g:
-            found_games[g['url']] = g
+    # 2. PARTIE NA ŻYWO (PRZYWRÓCONE!) - niezbędne do łapania partii z ostatnich kilkunastu minut
+    url_live = f"https://api.chess.com/pub/player/{username.lower()}/games?cb={req_time}"
+    try:
+        r2 = requests.get(url_live, headers=headers, timeout=5)
+        if r2.status_code == 200:
+            for g in r2.json().get('games', []):
+                if 'url' in g:
+                    found_games[g['url']] = g
+    except Exception:
+        pass
 
-    # Filtracja po dacie/czasie (odrzucamy partie zakończone przed ustaloną godziną)
-    cutoff_ts = start_dt.timestamp()
     valid_games = []
+    all_today_games = [] # Do debugowania
 
     for g in found_games.values():
-        end_ts = g.get('end_time', 0)
-        if end_ts >= cutoff_ts:
-            valid_games.append(g)
+        end_ts = g.get('end_time')
+        if not end_ts:
+            continue # Pomijamy partie, które jeszcze trwają
+            
+        g_date_pl = datetime.fromtimestamp(end_ts, tz=poland_tz).date()
+        
+        # Filtrujemy tylko partie z wybranego dnia
+        if g_date_pl == target_date:
+            all_today_games.append(g)
+            # Sprawdzamy czy partia zakończyła się PO wybranej godzinie rozpoczęcia
+            if end_ts >= cutoff_ts:
+                valid_games.append(g)
 
     # Sortowanie od najstarszej do najnowszej
     valid_games.sort(key=lambda x: x.get('end_time', 0))
-    return valid_games, found_games
+    all_today_games.sort(key=lambda x: x.get('end_time', 0))
+    
+    return valid_games, all_today_games
 
 # Pobieranie gier
-games, all_raw_games = fetch_all_possible_sources(USERNAME, start_cutoff_dt)
+games, all_today_games = fetch_all_possible_sources(USERNAME, selected_date, start_cutoff_dt.timestamp())
 
 # Wyświetlanie danych dla trybu debugowania
 if debug_mode:
-    st.info(f"**🐞 Tryb debugowania**\nGodzina odcięcia (Unix timestamp): {start_cutoff_dt.timestamp()}")
-    all_sorted = sorted(all_raw_games.values(), key=lambda x: x.get('end_time', 0))
-    if all_sorted:
-        last_raw_game = all_sorted[-1]
-        last_time_pl = datetime.fromtimestamp(last_raw_game['end_time'], tz=poland_tz)
-        st.warning(f"Najnowsza gra pobrana z API Chess.com zakończyła się: **{last_time_pl.strftime('%Y-%m-%d %H:%M:%S')}**. Została rozegrana z przeciwnikiem: **{last_raw_game.get('black', {}).get('username') if last_raw_game.get('white', {}).get('username').lower() == USERNAME.lower() else last_raw_game.get('white', {}).get('username')}**.")
+    st.info(f"**🐞 Tryb debugowania** - Godzina odcięcia: {start_cutoff_dt.strftime('%H:%M:%S')}")
+    if not all_today_games:
+        st.error(f"API Chess.com aktualnie nie zwraca ŻADNYCH zakończonych partii dla dnia {selected_date}.")
     else:
-        st.error("API Chess.com aktualnie nie zwraca ŻADNYCH gier w tym i poprzednim miesiącu (błąd API).")
+        debug_data = []
+        for g in all_today_games:
+            dt_pl = datetime.fromtimestamp(g['end_time'], tz=poland_tz)
+            is_white = (g['white']['username'].lower() == USERNAME.lower())
+            opp = g['black']['username'] if is_white else g['white']['username']
+            status = "✅ POKAZANA" if g['end_time'] >= start_cutoff_dt.timestamp() else "❌ ODRZUCONA (przed czasem)"
+            debug_data.append({
+                "Godzina (PL)": dt_pl.strftime('%H:%M:%S'),
+                "Przeciwnik": opp,
+                "Status filtra": status
+            })
+        st.write("Wszystkie dzisiejsze partie znalezione w API:")
+        st.dataframe(pd.DataFrame(debug_data))
 
-# Wybór 11 partii zależnie od opcji
+# Wybór 11 partii
 if selection_mode == "Pierwsze 11 od godziny startu":
     tournament_games = games[:11]
 else:
@@ -229,6 +246,6 @@ st.table(df)
 
 st.caption(f"🔄 Czas serwera: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Zarejestrowanych partii: **{played_count}**")
 
-# Ważne: co 5 sekund to bardzo szybko, jeśli problem z banem IP od Chess.com by się pojawił, zmień to na 10
+# Automatyczne odświeżanie
 time.sleep(5)
 st.rerun()
