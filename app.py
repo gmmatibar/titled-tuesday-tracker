@@ -247,5 +247,5 @@ st.table(df)
 st.caption(f"🔄 Czas serwera: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Zarejestrowanych partii: **{played_count}**")
 
 # Automatyczne odświeżanie
-time.sleep(5)
+time.sleep(30)
 st.rerun()
