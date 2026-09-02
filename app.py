@@ -2,38 +2,43 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
-from datetime import datetime, date
+from datetime import datetime, date, time as dtime, timedelta
 import zoneinfo
 
 st.set_page_config(page_title="Titled Tuesday Tracker", page_icon="♟️", layout="wide")
 
 USERNAME = "matibar"
 
-# --- STYLOWANIE CSS ---
+# --- STYLOWANIE CSS (TRANSPARENTNE TŁO) ---
 st.markdown("""
     <style>
     @import url('https://fonts.cdnfonts.com/css/comic-sans-ms');
     
-    html, body, [class*="css"], .stMarkdown, table {
-        font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+    /* Pełna przezroczystość tła Streamlit */
+    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stMain"] {
+        background-color: transparent !important;
+        background: transparent !important;
     }
 
-    div[data-testid="stTable"] table * {
-        color: #D4AF37 !important;
+    html, body, [class*="css"], .stMarkdown, table {
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
-        font-size: 13px !important;
     }
 
     h3 {
         color: #D4AF37 !important;
         font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
         font-size: 20px !important;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9) !important;
     }
 
-    div[data-testid="stTable"] { width: 520px !important; }
+    /* Przezroczystość dla tabeli */
+    div[data-testid="stTable"] {
+        width: 520px !important;
+        background-color: transparent !important;
+    }
 
     div[data-testid="stTable"] table {
-        background-color: #1A1A1A !important;
+        background-color: transparent !important;
         border-collapse: collapse !important;
         table-layout: fixed !important;
         width: 100% !important;
@@ -42,20 +47,23 @@ st.markdown("""
     }
 
     div[data-testid="stTable"] td, div[data-testid="stTable"] th {
-        background-color: #1A1A1A !important;
-        border-bottom: 1px solid #282828 !important;
+        background-color: transparent !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
         padding: 4px 5px !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+        color: #D4AF37 !important;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9) !important;
     }
 
     div[data-testid="stTable"] th {
-        background-color: #141414 !important;
-        border-bottom: 2px solid #333333 !important;
+        background-color: rgba(0, 0, 0, 0.4) !important; /* Lekkie przyciemnienie nagłówka dla czytelności */
+        border-bottom: 2px solid #D4AF37 !important;
         text-align: left !important;
     }
 
+    /* Szerokości kolumn */
     div[data-testid="stTable"] table th:nth-child(1),
     div[data-testid="stTable"] table td:nth-child(1) { width: 35px !important; }
     
@@ -79,6 +87,11 @@ st.markdown("""
     div[data-testid="stTable"] td:nth-child(6), div[data-testid="stTable"] th:nth-child(6) {
         text-align: center !important;
     }
+
+    .stCaption {
+        color: #E0E0E0 !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9) !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -86,9 +99,20 @@ st.markdown("""
 st.sidebar.header("⚙️ Ustawienia Turnieju")
 
 poland_tz = zoneinfo.ZoneInfo("Europe/Warsaw")
-st.sidebar.info(f"🕒 **Czas PL:** {datetime.now(poland_tz).strftime('%H:%M:%S')}")
+now_pl = datetime.now(poland_tz)
+st.sidebar.info(f"🕒 **Czas PL:** {now_pl.strftime('%H:%M:%S')}")
 
 selected_date = st.sidebar.date_input("Data turnieju", value=date.today())
+selected_time = st.sidebar.time_input("Godzina rozpoczęcia", value=dtime(17, 0))
+
+selection_mode = st.sidebar.radio(
+    "Wybiór partii do tabeli:",
+    ["Pierwsze 11 od godziny startu", "Ostatnie 11 rozegranych"],
+    index=0
+)
+
+# Punkt odcięcia czasowego w strefie czasowej Polski
+start_cutoff_dt = datetime.combine(selected_date, selected_time).replace(tzinfo=poland_tz)
 
 def parse_result(result_code):
     win_codes = ['win']
@@ -100,64 +124,72 @@ def parse_result(result_code):
     else:
         return 0.0, "0"
 
-def fetch_all_possible_sources(username, target_date):
-    """Pobiera partie jednocześnie ze wszystkich znanych źródeł API Chess.com"""
-    req_time = int(time.time() * 1000)
+def fetch_games_for_month(username, year, month, headers):
+    """Pobiera archiwum gier z danego miesiąca z obsługą błędów 404"""
+    url = f"https://api.chess.com/pub/player/{username.lower()}/games/{year:04d}/{month:02d}"
+    try:
+        r = requests.get(url, headers=headers, timeout=5)
+        if r.status_code == 200:
+            return r.json().get('games', [])
+    except Exception:
+        pass
+    return []
+
+def fetch_all_possible_sources(username, start_dt):
+    """Pobiera partie z obecnego i poprzedniego miesiąca oraz z live endpointu"""
     headers = {
-        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TrackerBot/{req_time}',
+        'User-Agent': f'ChessTournamentTracker/2.0 (user: {username})',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache'
     }
 
     found_games = {}
 
-    # Zapytanie 1: Archwiu miesięczne z bypassem cache
-    year_str = target_date.strftime("%Y")
-    month_str = target_date.strftime("%m")
-    url_month = f"https://api.chess.com/pub/player/{username.lower()}/games/{year_str}/{month_str}?cb={req_time}"
-    
+    # 1. Pobierz gry z obecnego miesiąca wyznaczonej daty
+    g1 = fetch_games_for_month(username, start_dt.year, start_dt.month, headers)
+    for g in g1:
+        if 'url' in g:
+            found_games[g['url']] = g
+
+    # 2. Pobierz gry z poprzedniego miesiąca (na wypadek przełomu miesięcy/stref czasowych)
+    prev_month_date = start_dt - timedelta(days=15)
+    g2 = fetch_games_for_month(username, prev_month_date.year, prev_month_date.month, headers)
+    for g in g2:
+        if 'url' in g:
+            found_games[g['url']] = g
+
+    # 3. Endpoint z najnowszymi/aktywnymi grami
+    url_live = f"https://api.chess.com/pub/player/{username.lower()}/games"
     try:
-        r1 = requests.get(url_month, headers=headers, timeout=5)
-        if r1.status_code == 200:
-            for g in r1.json().get('games', []):
+        r_live = requests.get(url_live, headers=headers, timeout=5)
+        if r_live.status_code == 200:
+            for g in r_live.json().get('games', []):
                 if 'url' in g:
                     found_games[g['url']] = g
     except Exception:
         pass
 
-    # Zapytanie 2: Endpoint gier w trakcie i bezpośrednio zakończonych
-    url_live = f"https://api.chess.com/pub/player/{username.lower()}/games?cb={req_time}"
-    try:
-        r2 = requests.get(url_live, headers=headers, timeout=5)
-        if r2.status_code == 200:
-            for g in r2.json().get('games', []):
-                if 'url' in g:
-                    found_games[g['url']] = g
-    except Exception:
-        pass
+    # Przefiltruj partie: wyłącznie blitz/bullet/rapid zakończone PO ustalonej godzinie rozpoczęcia
+    cutoff_ts = start_dt.timestamp()
+    valid_games = []
 
-    # Przefiltrowanie gier wyłącznie z wybranego dnia (typ blitz)
-    today_blitz = []
     for g in found_games.values():
         end_ts = g.get('end_time', 0)
-        g_date_pl = datetime.fromtimestamp(end_ts, tz=poland_tz).date()
-        
-        if g_date_pl == target_date and g.get('time_class') == 'blitz':
-            today_blitz.append(g)
+        if end_ts >= cutoff_ts:
+            valid_games.append(g)
 
-    # Sortowanie chronologiczne od 1 rundy do ostatniej
-    today_blitz.sort(key=lambda x: x.get('end_time', 0))
-    return today_blitz
+    # Sortowanie chronologiczne
+    valid_games.sort(key=lambda x: x.get('end_time', 0))
+    return valid_games
 
-# Pobieranie gier
-games = fetch_all_possible_sources(USERNAME, selected_date)
+# Pobranie przefiltrowanych partii
+games = fetch_all_possible_sources(USERNAME, start_cutoff_dt)
 
-# Jeśli partii jest więcej niż 11 (np. zagrałeś dzisiaj też inne partie blitz przed turniejem),
-# bierzemy OSTATNIE rozegrane partie z dzisiejszego dnia
-if len(games) > 11:
-    tournament_games = games[-11:]
+# Wybór 11 partii zależnie od ustawienia w Sidebarze
+if selection_mode == "Pierwsze 11 od godziny startu":
+    tournament_games = games[:11]
 else:
-    tournament_games = games
+    tournament_games = games[-11:] if len(games) >= 11 else games
 
 played_count = len(tournament_games)
 
@@ -193,13 +225,13 @@ for rd in range(1, 12):
         })
 
 # Wyświetlanie tabeli
-st.subheader("📊 Wyniki w Titled Tuesday")
+st.subheader("📊 Wyniki Turnieju")
 
 df = pd.DataFrame(processed_games)
 st.table(df)
 
-st.caption(f"🔄 Czas serwera: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Wykryto dzisiejszych partii: **{played_count}**")
+st.caption(f"🔄 Czas serwera: **{datetime.now(poland_tz).strftime('%H:%M:%S')}** | Zarejestrowanych partii: **{played_count}**")
 
-# Odświeżanie co 5 sekund
+# Automatyczne odświeżanie co 5 sekund
 time.sleep(5)
 st.rerun()
